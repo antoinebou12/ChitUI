@@ -1,315 +1,287 @@
-from flask import Flask, Response, request, stream_with_context
-from werkzeug.utils import secure_filename
-from flask_socketio import SocketIO
-from threading import Thread
-from loguru import logger
-import socket
-import json
+#!/usr/bin/env python3
+"""
+ChitUI - Web UI for Chitubox SDCP 3.0 resin printers
+
+This is the main entry point for the application, handling CLI arguments
+and starting the web server.
+"""
 import os
-import websocket
-import time
 import sys
-import requests
-import hashlib
-import uuid
+import typer
+from pathlib import Path
+from loguru import logger
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich import print as rprint
+import time
 
-debug = False
-log_level = "INFO"
-if os.environ.get("DEBUG"):
-    debug = True
-    log_level = "DEBUG"
+# Import our database management modules
+from app.db_config import setup_db_engine, get_db_session, close_db_session
+from app.db_migration import run_migrations, get_current_version
+from app.db_backup import DatabaseBackup
+from app.db_cli import app as db_app
 
-logger.remove()
-logger.add(sys.stdout, colorize=debug, level=log_level)
+from app.utils import load_config_file as load_config
 
-port = 54780
-if os.environ.get("PORT") is not None:
-    port = os.environ.get("PORT")
+# Create Typer app
+app = typer.Typer(
+    name="ChitUI",
+    help="Web UI for Chitubox SDCP 3.0 resin printers",
+    add_completion=False,
+)
 
-discovery_timeout = 1
-app = Flask(__name__,
-            static_url_path='',
-            static_folder='web')
-socketio = SocketIO(app)
-websockets = {}
-printers = {}
+# Add the database management CLI as a subcommand
+app.add_typer(db_app, name="db", help="Database management commands")
 
-UPLOAD_FOLDER = '/tmp'
-ALLOWED_EXTENSIONS = {'ctb', 'goo', 'prz'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-uploadProgress = 0
+# Create Rich console
+console = Console()
 
-
-@app.route("/")
-def web_index():
-    return app.send_static_file('index.html')
-
-
-@app.route('/progress')
-def progress():
-    def publish_progress():
-        while uploadProgress <= 100:
-            yield "data:{p}\n\n".format(p=get_upload_progress())
-            time.sleep(1)
-    return Response(publish_progress(), mimetype="text/event-stream")
-
-
-def get_upload_progress():
-    return uploadProgress
-
-
-@app.route('/upload', methods=['GET', 'POST'])
-def upload_file():
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            logger.error("No 'file' parameter in request.")
-            return Response('{"upload": "error", "msg": "Malformed request - no file."}', status=400, mimetype="application/json")
-        file = request.files['file']
-        if file.filename == '':
-            logger.error('No file selected to be uploaded.')
-            return Response('{"upload": "error", "msg": "No file selected."}', status=400, mimetype="application/json")
-        form_data = request.form.to_dict()
-        if 'printer' not in form_data or form_data['printer'] == "":
-            logger.error("No 'printer' parameter in request.")
-            return Response('{"upload": "error", "msg": "Malformed request - no printer."}', status=400, mimetype="application/json")
-        printer = printers[form_data['printer']]
-        if file and not allowed_file(file.filename):
-            logger.error("Invalid filetype.")
-            return Response('{"upload": "error", "msg": "Invalid filetype."}', status=400, mimetype="application/json")
-
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        logger.debug(
-            "File '{f}' received, uploading to printer '{p}'...", f=filename, p=printer['name'])
-        upload_file(printer['ip'], filepath)
-        return Response('{"upload": "success", "msg": "File uploaded"}', status=200, mimetype="application/json")
-    else:
-        return Response("u r doin it rong", status=405, mimetype='text/plain')
-
-
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def upload_file(printer_ip, filepath):
-    global uploadProgress
-    part_size = 1048576
-    filename = os.path.basename(filepath)
-    md5_hash = hashlib.md5()
-    with open(filepath, "rb") as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            md5_hash.update(byte_block)
-    file_stats = os.stat(filepath)
-    post_data = {
-        'S-File-MD5': md5_hash.hexdigest(),
-        'Check': 1,
-        'Offset': 0,
-        'Uuid': uuid.uuid4(),
-        'TotalSize': file_stats.st_size,
+def load_config(config_path=None):
+    """Load configuration from YAML file."""
+    import yaml
+    
+    default_config = {
+        "host": os.environ.get("HOST", "0.0.0.0"),
+        "port": int(os.environ.get("PORT", 54780)),
+        "debug": os.environ.get("DEBUG", "false").lower() == "true",
+        "log_level": os.environ.get("LOG_LEVEL", "INFO"),
+        "upload_folder": os.environ.get("UPLOAD_FOLDER", "uploads"),
+        "log_folder": os.environ.get("LOG_FOLDER", "logs"),
+        "discovery_timeout": int(os.environ.get("DISCOVERY_TIMEOUT", 1)),
+        "admin_user": os.environ.get("ADMIN_USER", "admin"),
+        "admin_password": os.environ.get("ADMIN_PASSWORD", "admin"),
+        "secret_key": os.environ.get("SECRET_KEY", os.urandom(24).hex()),
+        "database_uri": os.environ.get("DATABASE_URI", "sqlite:///chitui.db"),
+        "config_folder": os.environ.get("CONFIG_FOLDER", "config"),
+        "backup_folder": os.environ.get("BACKUP_FOLDER", "backups"),
+        # Database connection pool settings
+        "db_pool_size": int(os.environ.get("DB_POOL_SIZE", 10)),
+        "db_max_overflow": int(os.environ.get("DB_MAX_OVERFLOW", 20)),
+        "db_pool_timeout": int(os.environ.get("DB_POOL_TIMEOUT", 30)),
+        # Backup settings
+        "auto_backup_enabled": os.environ.get("AUTO_BACKUP_ENABLED", "true").lower() == "true",
+        "auto_backup_interval": int(os.environ.get("AUTO_BACKUP_INTERVAL", 24)),  # hours
+        "auto_backup_keep": int(os.environ.get("AUTO_BACKUP_KEEP", 7)),  # number of backups to keep
     }
-    url = 'http://{ip}:3030/uploadFile/upload'.format(ip=printer_ip)
-    num_parts = (int)(file_stats.st_size / part_size)
-    logger.debug("Uploaded file will be split into {} parts", num_parts)
-    i = 0
-    while i <= num_parts:
-        offset = i * part_size
-        uploadProgress = round(i / num_parts * 100)
-        with open(filepath, 'rb') as f:
-            f.seek(offset)
-            file_part = f.read(part_size)
-            logger.debug("Uploading part {}/{} (offset: {})",
-                         i, num_parts, offset)
-            if not upload_file_part(url, post_data, filename, file_part, offset):
-                logger.error("Uploading file to printer failed.")
-                break
-            logger.debug("Part {}/{} uploaded.", i, num_parts, offset)
-        i += 1
-    uploadProgress = 100
-    os.remove(filepath)
-    return True
-
-
-def upload_file_part(url, post_data, file_name, file_part, offset):
-    post_data['Offset'] = offset
-    post_files = {'File': (file_name, file_part)}
-    response = requests.post(url, data=post_data, files=post_files)
-    status = json.loads(response.text)
-    if status['success']:
-        return True
-    logger.error(json.loads(response.text))
-    return False
-
-
-@socketio.on('connect')
-def sio_handle_connect(auth):
-    logger.info('Client connected')
-    socketio.emit('printers', printers)
-
-
-@socketio.on('disconnect')
-def sio_handle_disconnect():
-    logger.info('Client disconnected')
-
-
-@socketio.on('printers')
-def sio_handle_printers(data):
-    logger.debug('client.printers >> '+data)
-    main()
-
-
-@socketio.on('printer_info')
-def sio_handle_printer_status(data):
-    logger.debug('client.printer_info >> '+data['id'])
-    get_printer_status(data['id'])
-    get_printer_attributes(data['id'])
-
-
-@socketio.on('printer_files')
-def sio_handle_printer_files(data):
-    logger.debug('client.printer_files >> '+json.dumps(data))
-    get_printer_files(data['id'], data['url'])
-
-
-@socketio.on('action_delete')
-def sio_handle_action_delete(data):
-    logger.debug('client.action_delete >> '+json.dumps(data))
-    send_printer_cmd(data['id'], 259, {"FileList": [data['data']]})
-
-
-@socketio.on('action_print')
-def sio_handle_action_print(data):
-    logger.debug('client.action_print >> '+json.dumps(data))
-    send_printer_cmd(data['id'], 128, {
-                     "Filename": data['data'], "StartLayer": 0})
-
-
-def get_printer_status(id):
-    send_printer_cmd(id, 0)
-
-
-def get_printer_attributes(id):
-    send_printer_cmd(id, 1)
-
-
-def get_printer_files(id, url):
-    send_printer_cmd(id, 258, {"Url": url})
-
-
-def send_printer_cmd(id, cmd, data={}):
-    printer = printers[id]
-    ts = int(time.time())
-    payload = {
-        "Id": printer['connection'],
-        "Data": {
-            "Cmd": cmd,
-            "Data": data,
-            "RequestID": os.urandom(8).hex(),
-            "MainboardID": id,
-            "TimeStamp": ts,
-            "From": 0
-        },
-        "Topic": "sdcp/request/" + id
-    }
-    logger.debug("printer << \n{p}", p=json.dumps(payload, indent=4))
-    if id in websockets:
-        websockets[id].send(json.dumps(payload))
-
-
-def discover_printers():
-    logger.info("Starting printer discovery.")
-    msg = b'M99999'
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM,
-                         socket.IPPROTO_UDP)  # UDP
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    sock.settimeout(discovery_timeout)
-    sock.bind(('', 54781))
-    sock.sendto(msg, ("255.255.255.255", 3000))
-    socketOpen = True
-    printers = None
-    while (socketOpen):
+    
+    if config_path:
         try:
-            data = sock.recv(8192)
-            printers = save_discovered_printer(data)
-        except TimeoutError:
-            sock.close()
-            break
-    logger.info("Discovery done.")
-    return printers
+            with open(config_path, "r") as f:
+                user_config = yaml.safe_load(f)
+                if user_config:
+                    default_config.update(user_config)
+        except Exception as e:
+            logger.warning(f"Failed to load config from {config_path}: {e}")
+    
+    return default_config
 
 
-def save_discovered_printer(data):
-    j = json.loads(data.decode('utf-8'))
-    printer = {}
-    printer['connection'] = j['Id']
-    printer['name'] = j['Data']['Name']
-    printer['model'] = j['Data']['MachineName']
-    printer['brand'] = j['Data']['BrandName']
-    printer['ip'] = j['Data']['MainboardIP']
-    printer['protocol'] = j['Data']['ProtocolVersion']
-    printer['firmware'] = j['Data']['FirmwareVersion']
-    printers[j['Data']['MainboardID']] = printer
-    logger.info("Discovered: {n} ({i})".format(
-        n=printer['name'], i=printer['ip']))
-    return printers
+def setup_logging(config):
+    """Configure logging with loguru."""
+    # Remove default logger
+    logger.remove()
+    
+    # Create log directory if it doesn't exist
+    log_dir = Path(config["log_folder"])
+    log_dir.mkdir(exist_ok=True)
+    
+    # Add stderr logger
+    logger.add(
+        sys.stderr,
+        level=config["log_level"],
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        colorize=True,
+    )
+    
+    # Add file logger
+    logger.add(
+        log_dir / "chitui.log",
+        rotation="10 MB",
+        retention="1 week",
+        level=config["log_level"],
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+    )
 
 
-def connect_printers(printers):
-    for id, printer in printers.items():
-        url = "ws://{ip}:3030/websocket".format(ip=printer['ip'])
-        logger.info("Connecting to: {n}".format(n=printer['name']))
-        websocket.setdefaulttimeout(1)
-        ws = websocket.WebSocketApp(url,
-                                    on_message=ws_msg_handler,
-                                    on_open=lambda _: ws_connected_handler(
-                                        printer['name']),
-                                    on_close=lambda _, s, m: logger.info(
-                                        "Connection to '{n}' closed: {m} ({s})".format(n=printer['name'], m=m, s=s)),
-                                    on_error=lambda _, e: logger.info(
-                                        "Connection to '{n}' error: {e}".format(n=printer['name'], e=e))
-                                    )
-        websockets[id] = ws
-        Thread(target=lambda: ws.run_forever(reconnect=1), daemon=True).start()
-
-    return True
-
-
-def ws_connected_handler(name):
-    logger.info("Connected to: {n}".format(n=name))
-    socketio.emit('printers', printers)
-
-
-def ws_msg_handler(ws, msg):
-    data = json.loads(msg)
-    logger.debug("printer >> \n{m}", m=json.dumps(data, indent=4))
-    if data['Topic'].startswith("sdcp/response/"):
-        socketio.emit('printer_response', data)
-    elif data['Topic'].startswith("sdcp/status/"):
-        socketio.emit('printer_status', data)
-    elif data['Topic'].startswith("sdcp/attributes/"):
-        socketio.emit('printer_attributes', data)
-    elif data['Topic'].startswith("sdcp/error/"):
-        socketio.emit('printer_error', data)
-    elif data['Topic'].startswith("sdcp/notice/"):
-        socketio.emit('printer_notice', data)
+def print_banner(config):
+    """Print a nice ASCII banner for the application."""
+    banner = Text()
+    banner.append("  _____ _     _ _   _   _ ___ \n", style="blue")
+    banner.append(" / ____| |   (_) | | | |_|__ \\\n", style="blue")
+    banner.append("| |    | |__  _| |_| | | | | |\n", style="cyan")
+    banner.append("| |    | '_ \\| | __| | | | | |\n", style="cyan")
+    banner.append("| |____| | | | | |_| |_| |_| |\n", style="green")
+    banner.append(" \\_____|_| |_|_|\\__|\\___/\\___/\n", style="green")
+    
+    subtext = Text()
+    subtext.append("Web UI for Chitubox SDCP 3.0 resin printers\n\n", style="yellow")
+    subtext.append(f"Server running at: ", style="white")
+    subtext.append(f"http://{config['host']}:{config['port']}\n", style="cyan bold")
+    subtext.append(f"Debug mode: ", style="white")
+    subtext.append(f"{'Enabled' if config['debug'] else 'Disabled'}\n", 
+                  style="green bold" if not config['debug'] else "yellow bold")
+    subtext.append(f"Database: ", style="white")
+    
+    # Simple detection of database type from URI
+    db_uri = config.get('database_uri', '')
+    if 'sqlite' in db_uri:
+        db_type = "SQLite"
+    elif 'mysql' in db_uri:
+        db_type = "MySQL"
+    elif 'postgresql' in db_uri:
+        db_type = "PostgreSQL"
     else:
-        logger.warning("--- UNKNOWN MESSAGE ---")
-        logger.warning(data)
-        logger.warning("--- UNKNOWN MESSAGE ---")
+        db_type = "Unknown"
+    
+    subtext.append(f"{db_type}\n", style="cyan bold")
+    
+    # Get database version
+    engine, _ = setup_db_engine(config)
+    db_version = get_current_version(engine)
+    subtext.append(f"Database version: ", style="white")
+    subtext.append(f"{db_version}\n", style="cyan bold")
+    
+    panel = Panel(
+        Text.assemble(banner, "\n", subtext),
+        title="ChitUI",
+        subtitle="v1.0.0",
+        border_style="blue",
+    )
+    
+    console.print(panel)
 
 
-def main():
-    printers = discover_printers()
-    if printers:
-        connect_printers(printers)
-        socketio.emit('printers', printers)
-    else:
-        logger.error("No printers discovered.")
+def setup_auto_backup(config):
+    """Set up automatic database backup if enabled."""
+    if not config.get('auto_backup_enabled', True):
+        return
+    
+    import threading
+    
+    def backup_task():
+        interval_hours = config.get('auto_backup_interval', 24)
+        keep_count = config.get('auto_backup_keep', 7)
+        
+        while True:
+            try:
+                # Sleep for the interval
+                time.sleep(interval_hours * 3600)
+                
+                # Create backup
+                backup_manager = DatabaseBackup(config)
+                backup_info = backup_manager.create_backup("Automatic backup")
+                
+                if backup_info:
+                    logger.info(f"Automatic backup created: {backup_info['filename']}")
+                    
+                    # Clean up old backups
+                    backups = backup_manager.list_backups()
+                    if len(backups) > keep_count:
+                        # Delete oldest backups
+                        for backup in backups[keep_count:]:
+                            backup_manager.delete_backup(backup["id"])
+                            logger.info(f"Deleted old backup: {backup['filename']}")
+                else:
+                    logger.error("Automatic backup failed")
+                    
+            except Exception as e:
+                logger.error(f"Error in backup task: {e}")
+    
+    # Start backup thread
+    backup_thread = threading.Thread(target=backup_task, daemon=True)
+    backup_thread.start()
+    logger.info("Automatic database backup task started")
+
+
+@app.command()
+def run(
+    config_file: str = typer.Option(
+        None, "--config", "-c", help="Path to configuration file"
+    ),
+    host: str = typer.Option(
+        None, "--host", "-h", help="Host to bind the server to"
+    ),
+    port: int = typer.Option(
+        None, "--port", "-p", help="Port to bind the server to"
+    ),
+    debug: bool = typer.Option(
+        None, "--debug", "-d", help="Enable debug mode"
+    ),
+    log_level: str = typer.Option(
+        None, "--log-level", "-l", 
+        help="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+    ),
+    database_uri: str = typer.Option(
+        None, "--db", "--database", help="Database URI (e.g., sqlite:///chitui.db)"
+    ),
+    auto_backup: bool = typer.Option(
+        None, "--auto-backup/--no-auto-backup", help="Enable/disable automatic database backup"
+    ),
+):
+    """Run the ChitUI web server."""
+    # Load configuration
+    config = load_config(config_file)
+    
+    # Override config with CLI arguments
+    if host is not None:
+        config["host"] = host
+    if port is not None:
+        config["port"] = port
+    if debug is not None:
+        config["debug"] = debug
+    if log_level is not None:
+        config["log_level"] = log_level
+    if database_uri is not None:
+        config["database_uri"] = database_uri
+    if auto_backup is not None:
+        config["auto_backup_enabled"] = auto_backup
+    
+    # Setup logging
+    setup_logging(config)
+    
+    # Create required directories
+    Path(config["upload_folder"]).mkdir(exist_ok=True)
+    Path(config["config_folder"]).mkdir(exist_ok=True)
+    Path(config["backup_folder"]).mkdir(exist_ok=True)
+    
+    # Set up database engine
+    engine, Session = setup_db_engine(
+        config,
+        pool_size=config.get("db_pool_size", 10),
+        max_overflow=config.get("db_max_overflow", 20),
+        timeout=config.get("db_pool_timeout", 30)
+    )
+    
+    # Run migrations if needed
+    try:
+        run_migrations()
+        logger.info("Database migrations completed")
+    except Exception as e:
+        logger.error(f"Error running migrations: {e}")
+    
+    # Print banner
+    print_banner(config)
+    
+    # Set up automatic backup
+    setup_auto_backup(config)
+    
+    # Import app here to avoid circular imports and use the config
+    from app import create_app
+    
+    flask_app, socketio = create_app(config)
+    
+    # Run the app
+    logger.info(f"Starting ChitUI server on {config['host']}:{config['port']}")
+    socketio.run(
+        flask_app,
+        host=config["host"],
+        port=config["port"],
+        debug=config["debug"],
+        use_reloader=config["debug"],
+        log_output=True,
+    )
 
 
 if __name__ == "__main__":
-    main()
-
-    socketio.run(app, host='0.0.0.0', port=port,
-                 debug=debug, use_reloader=debug, log_output=True)
+    app()

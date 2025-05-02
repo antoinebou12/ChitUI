@@ -1,0 +1,134 @@
+/**
+ * ChitUI - Custom CSS styles
+ */
+
+/* Main layout */
+html, body {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+  min-height: calc(100vh - 56px);
+}
+
+/* Printer list sidebar */
+.scrollarea {
+  overflow-y: auto;
+  max-height: calc(100vh - 56px - 60px);
+}
+
+.printerListItem:hover {
+  background-color: var(--bs-tertiary-bg);
+}
+
+.printerListItem.active {
+  background-color: var(--bs-tertiary-bg);
+  border-left: 4px solid var(--bs-primary);
+}
+
+/* Button styles */
+.btn-bd-primary {
+  --bs-btn-color: var(--bs-body-bg);
+  --bs-btn-bg: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-color: var(--bs-body-bg);
+  --bs-btn-hover-bg: var(--bs-primary-emphasis);
+  --bs-btn-hover-border-color: var(--bs-primary-emphasis);
+  --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
+  --bs-btn-active-color: var(--bs-body-bg);
+  --bs-btn-active-bg: var(--bs-primary-emphasis);
+  --bs-btn-active-border-color: var(--bs-primary-emphasis);
+}
+
+/* Card styles */
+.card {
+  --bs-card-cap-bg: var(--bs-tertiary-bg);
+}
+
+/* Tab content */
+.tab-content {
+  min-height: 300px;
+}
+
+/* Custom table styles */
+.fieldKey {
+  width: 30%;
+  font-weight: bold;
+}
+
+/* Camera view */
+.camera-view {
+  min-height: 300px;
+  background-color: var(--bs-tertiary-bg);
+  border-radius: 0.25rem;
+}
+
+/* File options */
+.fileOption {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.fileOption:hover {
+  opacity: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  main {
+    flex-direction: column;
+  }
+  
+  .scrollarea {
+    max-height: 300px;
+  }
+}
+
+/* Theme-specific styles */
+[data-bs-theme="dark"] .text-body-emphasis {
+  color: #f8f9fa !important;
+}
+
+[data-bs-theme="dark"] .text-body-secondary {
+  color: #adb5bd !important;
+}
+
+/* Progress bar animation */
+.progress-bar-animated {
+  animation: progress-bar-stripes 1s linear infinite;
+}
+
+/* Fix for modal z-index over toast */
+.modal {
+  z-index: 1060;
+}
+
+.toast-container {
+  z-index: 1070;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bs-body-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bs-secondary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bs-primary);
+}

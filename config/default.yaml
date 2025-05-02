@@ -1,0 +1,32 @@
+# ChitUI Configuration File
+
+# Server Settings
+host: "0.0.0.0"
+port: 54780
+debug: false
+log_level: "INFO"
+
+# Directory Settings
+upload_folder: "uploads"
+log_folder: "logs"
+config_folder: "config"
+
+# Authentication
+admin_user: "admin"
+admin_password: "admin"
+
+# Database Settings
+# SQLite (Default)
+database_uri: "sqlite:///chitui.db"
+
+# MySQL Example (uncomment to use)
+# database_uri: "mysql+pymysql://username:password@localhost/chitui"
+
+# PostgreSQL Example (uncomment to use)
+# database_uri: "postgresql+psycopg2://username:password@localhost/chitui"
+
+# Printer Discovery
+discovery_timeout: 1
+
+# Secret Key (automatically generated if not set)
+# secret_key: ""

@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  chitui:
+    build: .
+    image: chitui:latest
+    container_name: chitui
+    network_mode: host  # Required for UDP broadcast discovery
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    environment:
+      - PORT=54780
+      - HOST=0.0.0.0
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD=admin
+    restart: unless-stopped
