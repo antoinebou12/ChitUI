@@ -2,8 +2,6 @@
 
 A modern web UI for managing Chitubox SDCP 3.0-compatible resin 3D printers.
 
-<img src="https://github.com/yourusername/chitui/raw/main/static/img/chitui-dashboard.png" alt="ChitUI Dashboard" width="800"/>
-
 ## ✨ Features
 
 - **🔍 Smart Discovery** - Automatically detect SDCP-compatible printers on your local network
