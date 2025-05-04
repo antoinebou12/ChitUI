@@ -1,318 +1,176 @@
+"""
+stl_to_goo_cli.py  (single‑file slicer)
+======================================
+A *streaming* STL → Elegoo **.goo** converter in ~250 lines of pure
+Python.  Each layer is rasterised, run‑length‑encoded, and flushed
+directly to disk, so RAM stays flat even with 12K × 5K plates.
+
+Quick start
+-----------
+```bash
+pip install "trimesh>=4" pillow shapely typer rich tqdm numpy
+python stl_to_goo_cli.py model.stl -o model.goo
+```
+
+Key features
+------------
+* Works on **huge** displays (default 11 520 × 5120 for Saturn 4 Ultra).
+* Streams layers — no giant numpy stack, no MemoryError.
+* Generates valid headers for modern Elegoo machines (Mars 4, Saturn 4).
+* Zero supports / anti‑alias for now → focus is minimal usable core.
+
+Have fun & resin responsibly.  PRs to extend the header or add fancy
+features are welcome! 🖖
+"""
+
 from __future__ import annotations
-
 import struct
-import io
-import enum
-from dataclasses import dataclass, asdict
-from datetime import datetime
 from pathlib import Path
-from typing import BinaryIO, Iterator, List, Tuple
+from datetime import datetime
+from dataclasses import dataclass
 
-__all__ = [
-    "Header",
-    "LayerContent",
-    "GooFile",
-    "read_goo",
-]
+import typer
+from PIL import Image, ImageDraw
+from rich.console import Console
+from tqdm import tqdm
+import trimesh
+from shapely.geometry import Polygon, MultiPolygon
+from shapely.ops import unary_union
 
-_BE16 = ">H"
-_BE32 = ">I"
-_BEF32 = ">f"
+app = typer.Typer(add_completion=False)
+console = Console()
 
+# ──────────────────────────── .goo constants ────────────────────────────
 MAGIC = b"\x07\x00\x00\x00DLP\x00"
 DELIM = b"\x0D\x0A"
 ENDING = b"\x00\x00\x00\x07\x00\x00\x00DLP\x00"
 
-
-def _read_str(b: BinaryIO, n: int) -> str:
-    raw = b.read(n)
-    return raw.rstrip(b"\x00").decode("ascii", "ignore")
-
-
-def _read(fmt: str, fh: BinaryIO):
-    size = struct.calcsize(fmt)
-    return struct.unpack(fmt, fh.read(size))
-
-
-class ExposureDelay(enum.IntEnum):
-    TURN_OFF = 0
-    STATIC = 1
+# ───────────────────────── header helper ──────────────────────────
 
 
 @dataclass
-class Header:
-    version: str
-    software_info: str
-    software_version: str
-    file_time: datetime
-    printer_name: str
-    printer_type: str
-    profile_name: str
-    anti_aliasing: int
-    grey_level: int
-    blur_level: int
-    small_preview: bytes  # raw RGB565 data
-    big_preview: bytes    # raw RGB565 data
-    layer_count: int
-    x_res: int
-    y_res: int
-    x_mirror: bool
-    y_mirror: bool
-    x_size: float
-    y_size: float
-    z_size: float
-    layer_thickness: float
-    exposure_time: float
-    exposure_delay: ExposureDelay
-    turn_off_time: float
-    bottom_before_lift_time: float
-    bottom_after_lift_time: float
-    bottom_after_retract_time: float
-    before_lift_time: float
-    after_lift_time: float
-    after_retract_time: float
-    bottom_exposure_time: float
-    bottom_layers: int
-    bottom_lift_distance: float
-    bottom_lift_speed: float
-    lift_distance: float
-    lift_speed: float
-    bottom_retract_distance: float
-    bottom_retract_speed: float
-    retract_distance: float
-    retract_speed: float
-    bottom_second_lift_distance: float
-    bottom_second_lift_speed: float
-    second_lift_distance: float
-    second_lift_speed: float
-    bottom_second_retract_distance: float
-    bottom_second_retract_speed: float
-    second_retract_distance: float
-    second_retract_speed: float
-    bottom_light_pwm: int
-    light_pwm: int
-    per_layer_settings: bool
-    printing_time: int
-    total_volume: float
-    total_weight: float
-    total_price: float
-    price_unit: str
-    grey_scale_level: bool
-    transition_layers: int
+class GooHeader:
+    layers: int
+    x_px: int
+    y_px: int
+    x_mm: float
+    y_mm: float
+    z_mm: float
+    layer_h: float
+    exp: float
+    bottom_exp: float = 30.0
+    bottom_layers: int = 3
 
-    @classmethod
-    def parse(cls, fh: BinaryIO) -> "Header":
-        version = _read_str(fh, 4)
-        assert fh.read(8) == MAGIC, "magic mismatch"
-        software_info = _read_str(fh, 0x20)
-        software_version = _read_str(fh, 0x18)
-        file_time_raw = _read_str(fh, 0x18)
-        file_time = datetime.strptime(file_time_raw, "%Y-%m-%d %H:%M:%S") if file_time_raw else None
-        printer_name = _read_str(fh, 0x20)
-        printer_type = _read_str(fh, 0x20)
-        profile_name = _read_str(fh, 0x20)
-        anti_aliasing, grey_level, blur_level = _read(">HHH", fh)
-        small_preview = fh.read(116 * 116 * 2)
-        assert fh.read(2) == DELIM
-        big_preview = fh.read(290 * 290 * 2)
-        assert fh.read(2) == DELIM
-        (
-            layer_count,
-            x_res,
-            y_res,
-            x_mirror,
-            y_mirror,
-            x_size,
-            y_size,
-            z_size,
-            layer_thickness,
-            exposure_time,
-            exposure_delay_raw,
-            turn_off_time,
-            bottom_before_lift_time,
-            bottom_after_lift_time,
-            bottom_after_retract_time,
-            before_lift_time,
-            after_lift_time,
-            after_retract_time,
-            bottom_exposure_time,
-            bottom_layers,
-            bottom_lift_distance,
-            bottom_lift_speed,
-            lift_distance,
-            lift_speed,
-            bottom_retract_distance,
-            bottom_retract_speed,
-            retract_distance,
-            retract_speed,
-            bottom_second_lift_distance,
-            bottom_second_lift_speed,
-            second_lift_distance,
-            second_lift_speed,
-            bottom_second_retract_distance,
-            bottom_second_retract_speed,
-            second_retract_distance,
-            second_retract_speed,
-            bottom_light_pwm,
-            light_pwm,
-            per_layer_settings,
-            printing_time,
-            total_volume,
-            total_weight,
-            total_price,
-        ) = _read(
-            ">IHH??fff f f f f f f f f I f f f f f f f f f f f f f f f f f f f f ff?I f f f",
-            fh,
+    def pack(self, small_prev: bytes, big_prev: bytes) -> bytearray:
+        def s(txt: str, n: int) -> bytes:
+            return txt.encode("ascii", "ignore").ljust(n, b"\x00")[:n]
+
+        out = bytearray()
+        out += s("EGOO", 4) + MAGIC
+        out += s("py‑mslicer", 0x20) + s("0.3.0", 0x18)
+        out += s(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 0x18)
+        out += s("Elegoo", 0x20) + s("Saturn 4 Ultra", 0x20) + \
+            s("Std 0.05 mm", 0x20)
+        out += struct.pack(">HHH", 1, 1, 0)          # antialias, grey, blur
+        out += small_prev + DELIM + big_prev + DELIM
+
+        # pack core numeric block ---------------------
+        core_fmt = (
+            ">IHH??"        # layers, x_px, y_px, mirror flags
+            "fff"           # bed size (x_mm, y_mm, z_mm)
+            "fff"           # layer_h, exp, exposure delay
+            "ffffff"        # six motion zeros
+            "fI"            # bottom_exp, bottom_layers
+            "ff"            # bottom lift dist/speed
+            "ff"            # lift dist/speed
+            "ff"            # bottom retract dist/speed
+            "ff"            # retract dist/speed
+            "ff"            # second bottom lift dist/speed
+            "ff"            # second lift dist/speed
+            "ff"            # second bottom retract dist/speed
+            "ff"            # second retract dist/speed
+            "BB"            # light PWM
+            "?I"            # per-layer flag, print time
+            "fff"           # volume, weight, price
         )
-        price_unit = _read_str(fh, 8)
-        _ = fh.read(4)  # skip offset of layer content (not needed here)
-        grey_scale_level = bool(struct.unpack(">?", fh.read(1))[0])
-        (transition_layers,) = _read(">H", fh)
+        args = [
+            self.layers,
+            self.x_px, self.y_px,
+            False, False,
+            self.x_mm, self.y_mm, self.z_mm,
+            self.layer_h, self.exp, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            self.bottom_exp, self.bottom_layers,
+            5.0, 65.0,
+            5.0, 65.0,
+            5.0, 150.0,
+            5.0, 150.0,
+            0.0, 0.0,
+            0.0, 0.0,
+            0.0, 0.0,
+            0.0, 0.0,
+            255, 255,
+            False, int(self.layers * (self.exp + 0.5)),
+            0.0, 0.0, 0.0,
+        ]
+        core = struct.pack(core_fmt, *args)
+        out += core
+        # end core block
+        out += s("USD", 8)truct.pack(">H", l)+bytes([v])
+        i += l
+    return bytes(out)
 
-        return cls(
-            version,
-            software_info,
-            software_version,
-            file_time,
-            printer_name,
-            printer_type,
-            profile_name,
-            anti_aliasing,
-            grey_level,
-            blur_level,
-            small_preview,
-            big_preview,
-            layer_count,
-            x_res,
-            y_res,
-            x_mirror,
-            y_mirror,
-            x_size,
-            y_size,
-            z_size,
-            layer_thickness,
-            exposure_time,
-            ExposureDelay(exposure_delay_raw),
-            turn_off_time,
-            bottom_before_lift_time,
-            bottom_after_lift_time,
-            bottom_after_retract_time,
-            before_lift_time,
-            after_lift_time,
-            after_retract_time,
-            bottom_exposure_time,
-            bottom_layers,
-            bottom_lift_distance,
-            bottom_lift_speed,
-            lift_distance,
-            lift_speed,
-            bottom_retract_distance,
-            bottom_retract_speed,
-            retract_distance,
-            retract_speed,
-            bottom_second_lift_distance,
-            bottom_second_lift_speed,
-            second_lift_distance,
-            second_lift_speed,
-            bottom_second_retract_distance,
-            bottom_second_retract_speed,
-            second_retract_distance,
-            second_retract_speed,
-            bottom_light_pwm,
-            light_pwm,
-            bool(per_layer_settings),
-            printing_time,
-            total_volume,
-            total_weight,
-            total_price,
-            price_unit,
-            grey_scale_level,
-            transition_layers,
-        )
-
-    # helpers ---------------------------------------------------------------
-    def dict(self):
-        out = asdict(self)
-        out["file_time"] = self.file_time.isoformat() if self.file_time else None
-        out["exposure_delay"] = self.exposure_delay.name
-        return out
+# ───────────────────────── raster helper ──────────────────────────
 
 
-@dataclass
-class LayerContent:
-    # minimal subset – we mainly expose metadata; raw bytes kept for actual image decoding
-    pause: bool
-    layer_position_z: float
-    light_pwm: int
-    data: bytes
-    checksum: int
+def raster(section: trimesh.Path3D | None, x_px: int, y_px: int, x_mm: float, y_mm: float) -> bytes:
+    if not section:
+        return bytes(x_px*y_px)
+    planar = section.to_2D() if hasattr(
+        section, "to_2D") else section.to_planar()[0]
+    polys = planar.polygons_full
+    if not polys:
+        return bytes(x_px*y_px)
+    union = unary_union(polys)
+    img = Image.new("1", (x_px, y_px), 0)
+    draw = ImageDraw.Draw(img)
+    sx, sy = x_px/x_mm, y_px/y_mm
+    rings = ([union.exterior.coords] if isinstance(union, Polygon)
+             else [g.exterior.coords for g in union.geoms])
+    for ring in rings:
+        pts = [(int((x+x_mm/2)*sx), int((y_mm/2-y)*sy)) for x, y in ring]
+        if len(pts) >= 3:
+            draw.polygon(pts, fill=1)
+    return img.tobytes()
 
-    @classmethod
-    def parse(cls, fh: BinaryIO) -> "LayerContent":
-        (pause_flag,) = _read(">H", fh)
-        (pause_z, layer_z) = _read(">ff", fh)
-        fh.seek(0x30, io.SEEK_CUR)  # skip timing & motion params (we rarely need)
-        (light_pwm,) = _read(">H", fh)
-        assert fh.read(2) == DELIM
-        (dsize,) = _read(">I", fh)
-        assert fh.read(1) == b"\x55"
-        data = fh.read(dsize - 2)
-        (checksum,) = _read("B", fh)
-        assert fh.read(2) == DELIM
-        return cls(bool(pause_flag), layer_z, light_pwm, data, checksum)
-
-
-class GooFile:
-    """Wrapper for a parsed `.goo` file."""
-
-    def __init__(self, header: Header, layers: List[LayerContent]):
-        self.header = header
-        self.layers = layers
-
-    @classmethod
-    def parse(cls, fh: BinaryIO) -> "GooFile":
-        header = Header.parse(fh)
-        layers = [LayerContent.parse(fh) for _ in range(header.layer_count)]
-        assert fh.read(len(ENDING)) == ENDING, "ending string mismatch"
-        return cls(header, layers)
-
-    # helpers ---------------------------------------------------------------
-    def __iter__(self) -> Iterator[LayerContent]:
-        return iter(self.layers)
-
-    def __len__(self):
-        return len(self.layers)
+# ───────────────────────── CLI main ──────────────────────────
 
 
-# CLI utility --------------------------------------------------------------
+@app.command()
+def convert(
+    stl: Path = typer.Argument(..., help="Input STL"),
+    output: Path = typer.Option("out.goo", "-o", "--output"),
+    x_res: int = 11520, y_res: int = 5120,
+    x_mm: float = 218.88, y_mm: float = 122.904,
+    layer_h: float = 0.05, exp: float = 3.0,
+):
+    console.print(f"[bold]Mesh:[/] {stl}")
+    mesh = trimesh.load_mesh(stl, force="mesh")
+    layers = int((mesh.bounds[1][2]/layer_h)+0.9999)
+    console.print(f"[bold]Layers:[/] {layers}")
 
-def read_goo(path: str | Path) -> GooFile:
-    with open(path, "rb") as fh:
-        return GooFile.parse(fh)
-
-
-def _cli():
-    import argparse, json, sys, textwrap
-
-    p = argparse.ArgumentParser(
-        prog="goo_inspect",
-        description="Inspect Elegoo .goo file header + optional layer count.",
+    hdr = GooHeader(layers, x_res, y_res, x_mm, y_mm, 220.0, layer_h, exp).pack(
+        bytes(116*116*2), bytes(290*290*2)
     )
-    p.add_argument("file", help="path to .goo file")
-    p.add_argument("--layers", action="store_true", help="print per‑layer summary")
-    ns = p.parse_args()
-
-    goo = read_goo(ns.file)
-    print(json.dumps({"header": goo.header.dict(), "layer_count": len(goo)}, indent=2))
-    if ns.layers:
-        for i, lyr in enumerate(goo):
-            print(
-                textwrap.shorten(
-                    f"layer {i+1}: z={lyr.layer_position_z:.3f} mm pwm={lyr.light_pwm} pause={lyr.pause}",
-                    width=120,
-                )
-            )
+    with open(output, "wb") as fh:
+        fh.write(hdr)
+        for i in tqdm(range(layers), desc="slicing", unit="lyr"):
+            z = i*layer_h
+            sec = mesh.section([0, 0, z], [0, 0, 1])
+            fh.write(rle(raster(sec, x_res, y_res, x_mm, y_mm)))
+        fh.write(ENDING)
+    console.print(f"[green]✔ written:[/] {output}")
 
 
 if __name__ == "__main__":
-    _cli()
+    app()

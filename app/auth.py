@@ -68,7 +68,8 @@ def list_users():
     users = User.query.all()
     return render_template('admin.html',
                            users=users,
-                           current_user=current_user)
+                           current_user=current_user,
+                           user=current_user)
 
 
 @auth_bp.route('/users/add', methods=['POST'])

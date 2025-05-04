@@ -326,12 +326,6 @@ function createTabs(printer) {
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 class="mb-0">Files</h5>
       <div class="btn-group">
-        <button class="btn btn-outline-primary" id="btnRefreshLocalFiles">
-          <i class="bi bi-laptop me-1"></i> Local
-        </button>
-        <button class="btn btn-outline-primary" id="btnRefreshUsbFiles">
-          <i class="bi bi-usb-drive me-1"></i> USB
-        </button>
       </div>
     </div>
     <div id="files-list" class="list-group">
@@ -344,25 +338,25 @@ function createTabs(printer) {
   navPanes.appendChild(filesPane);
 
   // Add event listeners for file refresh buttons
-  filesPaneEl.querySelector('#btnRefreshLocalFiles').addEventListener('click', () => {
-    socket.emit('printer_files', { id: printer.id, url: '/local' });
-    filesPaneEl.querySelector('#files-list').innerHTML = `
-      <div class="text-center p-3">
-        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-        <span class="ms-2">Loading files...</span>
-      </div>
-    `;
-  });
+  // filesPaneEl.querySelector('#btnRefreshLocalFiles').addEventListener('click', () => {
+  //   socket.emit('printer_files', { id: printer.id, url: '/local' });
+  //   filesPaneEl.querySelector('#files-list').innerHTML = `
+  //     <div class="text-center p-3">
+  //       <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+  //       <span class="ms-2">Loading files...</span>
+  //     </div>
+  //   `;
+  // });
 
-  filesPaneEl.querySelector('#btnRefreshUsbFiles').addEventListener('click', () => {
-    socket.emit('printer_files', { id: printer.id, url: '/usb' });
-    filesPaneEl.querySelector('#files-list').innerHTML = `
-      <div class="text-center p-3">
-        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-        <span class="ms-2">Loading USB files...</span>
-      </div>
-    `;
-  });
+  // filesPaneEl.querySelector('#btnRefreshUsbFiles').addEventListener('click', () => {
+  //   socket.emit('printer_files', { id: printer.id, url: '/usb' });
+  //   filesPaneEl.querySelector('#files-list').innerHTML = `
+  //     <div class="text-center p-3">
+  //       <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+  //       <span class="ms-2">Loading USB files...</span>
+  //     </div>
+  //   `;
+  // });
 
   // 3. Camera Tab (if supported)
   if (printer.supports_camera) {
@@ -1394,6 +1388,9 @@ let discoveredPrinters = 0;
 document.addEventListener('DOMContentLoaded', () => {
   initDefaultImages();
 
+  refreshStatus();
+  setInterval(refreshStatus, 30_000);
+
   // Initialize scan modal
   scanModal = new bootstrap.Modal(document.getElementById('modalScanLAN'));
 
@@ -2292,3 +2289,23 @@ function logDebug(...args) {
 function logError(...args) {
   console.error('[ChitUI Error]', ...args);
 }
+
+// static/js/admin.js
+const uptimeEl = document.getElementById("uptime");
+const printersEl = document.getElementById("connectedPrinters");
+
+async function refreshStatus() {
+  let [health, printers] = await Promise.all([
+    fetch("/api/health").then(r => r.json()),
+    fetch("/api/printer/list").then(r => r.json())
+  ]);
+  // health.uptime is in seconds
+  let secs = health.uptime;
+  let d = Math.floor(secs/86400), h = Math.floor((secs%86400)/3600), m = Math.floor((secs%3600)/60);
+  uptimeEl.textContent = `${d}d ${h}h ${m}m`;
+  printersEl.textContent = Object.keys(printers).length;
+}
+
+// kick off, then every 30s
+refreshStatus();
+setInterval(refreshStatus, 30_000);

@@ -1,7 +1,9 @@
 """
 Web routes for ChitUI
 """
-from flask import Blueprint, render_template, redirect, url_for, request, jsonify, Response, send_from_directory, abort
+import sys
+import threading
+from flask import Blueprint, flash, render_template, redirect, url_for, request, jsonify, Response, send_from_directory, abort
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 import os
@@ -12,6 +14,7 @@ import requests
 from threading import Thread
 from loguru import logger
 from app import printers, upload_progress
+from app.models import User
 from app.printer_manager import get_printer_files, upload_file_to_printer, set_camera_status
 from app.utils import is_allowed_file, get_config
 
@@ -27,15 +30,37 @@ def index():
                            user=current_user, 
                            is_admin=current_user.is_admin())
 
+@routes_bp.route('/viewer')
+@login_required
+def model_viewer():
+    return render_template('viewer.html')
 
 @routes_bp.route('/admin')
 @login_required
 def admin():
-    """Render the admin page."""
+    users = User.query.all()
+    return render_template(
+        'admin.html',
+        users=users,
+        current_user=current_user 
+    )
+
+@routes_bp.route('/admin/restart', methods=['POST'])
+@login_required
+def admin_restart():
+    """Restart the whole Flask process (you need a supervisor to bring it back up)."""
     if not current_user.is_admin():
+        flash("You don't have permission to do that.", "danger")
         return redirect(url_for('routes.index'))
-    
-    return render_template('admin.html', user=current_user)
+
+    # Spawn a daemon thread that will re-exec the Python process
+    def _delayed_restart():
+        time.sleep(1)  # let the HTTP response go out
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+    threading.Thread(target=_delayed_restart, daemon=True).start()
+
+    return jsonify({"success": True, "message": "Server is restarting…"})
 
 
 @routes_bp.route('/progress')
@@ -195,5 +220,4 @@ def camera_stream(printer_id):
 
 @routes_bp.route('/static/<path:filename>')
 def static_files(filename):
-    """Serve static files."""
     return send_from_directory('../static', filename)

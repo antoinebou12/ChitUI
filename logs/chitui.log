@@ -671,3 +671,635 @@
 2025-05-03 21:43:27 | INFO     | app.printer_manager:discover_printers:94 - Starting enhanced printer discovery
 2025-05-03 21:43:27 | INFO     | app.printer_manager:scan_interface:204 - Discovered printer 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
 2025-05-03 21:43:27 | INFO     | app.printer_manager:save_discovered_printer:318 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:43:39 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 21:43:39 | INFO     | __main__:run:257 - Database migrations completed
+2025-05-03 21:43:39 | INFO     | __main__:setup_auto_backup:192 - Automatic database backup task started
+2025-05-03 21:43:39 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 21:43:39 | INFO     | app:load_system_settings:168 - System settings loaded
+2025-05-03 21:43:39 | INFO     | app:create_app:104 - Application initialized
+2025-05-03 21:43:39 | INFO     | __main__:run:273 - Starting ChitUI server on 0.0.0.0:54780
+2025-05-03 21:43:48 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 21:43:48 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 21:43:49 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:43:49 | INFO     | app.printer_manager:discover_printers:94 - Starting enhanced printer discovery
+2025-05-03 21:43:49 | INFO     | app.printer_manager:scan_interface:204 - Discovered printer 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:43:49 | INFO     | app.printer_manager:save_discovered_printer:318 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:43:51 | INFO     | app.printer_manager:discover_printers:158 - Discovery completed: 1 printers found
+2025-05-03 21:43:51 | INFO     | app.printer_manager:connect_printer:397 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:43:51 | INFO     | app.printer_manager:connect_printer:403 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:43:51 | INFO     | app.printer_manager:connect_printers:1054 - Connected to 1/1 printers
+2025-05-03 21:43:51 | INFO     | app.printer_manager:_ws_open:432 - WS connected: Antoine
+2025-05-03 21:43:51 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:43:51 | INFO     | app.printer_manager:discover_printers:94 - Starting enhanced printer discovery
+2025-05-03 21:43:51 | INFO     | app.socket_handlers:handle_scan_lan:53 - Client requested LAN scan with timeout: 8s
+2025-05-03 21:43:51 | INFO     | app.printer_manager:scan_interface:204 - Discovered printer 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:43:51 | INFO     | app.printer_manager:save_discovered_printer:318 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:43:52 | INFO     | app.printer_manager:discover_printers:94 - Starting enhanced printer discovery
+2025-05-03 21:43:52 | INFO     | app.printer_manager:scan_interface:204 - Discovered printer 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:43:52 | INFO     | app.printer_manager:save_discovered_printer:318 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:43:53 | INFO     | app.printer_manager:discover_printers:158 - Discovery completed: 1 printers found
+2025-05-03 21:43:53 | INFO     | app.printer_manager:connect_printer:397 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:43:53 | INFO     | app.printer_manager:connect_printer:403 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:43:53 | INFO     | app.printer_manager:connect_printers:1054 - Connected to 1/1 printers
+2025-05-03 21:43:53 | INFO     | app.printer_manager:_ws_open:432 - WS connected: Antoine
+2025-05-03 21:43:58 | INFO     | app.socket_handlers:handle_action_print:97 - Client requested print action: 5346909419520100, file: /local/ROOK.goo
+2025-05-03 21:44:00 | INFO     | app.printer_manager:discover_printers:158 - Discovery completed: 1 printers found
+2025-05-03 21:44:00 | INFO     | app.printer_manager:connect_printer:397 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:44:00 | INFO     | app.printer_manager:connect_printer:403 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:44:00 | INFO     | app.printer_manager:connect_printers:1054 - Connected to 1/1 printers
+2025-05-03 21:44:00 | INFO     | app.printer_manager:_ws_open:432 - WS connected: Antoine
+2025-05-03 21:44:04 | INFO     | app.socket_handlers:handle_action_stop:133 - Client requested stop action: 5346909419520100
+2025-05-03 21:48:50 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 21:48:50 | INFO     | __main__:run:257 - Database migrations completed
+2025-05-03 21:48:50 | INFO     | __main__:setup_auto_backup:192 - Automatic database backup task started
+2025-05-03 21:48:51 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 21:48:51 | INFO     | app:load_system_settings:168 - System settings loaded
+2025-05-03 21:48:51 | INFO     | app:create_app:104 - Application initialized
+2025-05-03 21:48:51 | INFO     | __main__:run:273 - Starting ChitUI server on 0.0.0.0:54780
+2025-05-03 21:49:02 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 21:49:03 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 21:49:04 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:49:04 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:49:04 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:49:04 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:49:06 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 21:49:06 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:49:06 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:49:06 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 21:49:06 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 21:49:15 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:49:15 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:49:15 | INFO     | app.socket_handlers:handle_scan_lan:53 - Client requested LAN scan with timeout: 8s
+2025-05-03 21:49:15 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:49:15 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:49:15 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:49:16 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:49:16 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:49:17 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 21:49:17 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:49:17 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:49:17 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 21:49:17 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 21:49:24 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 21:49:24 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:49:24 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:49:24 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 21:49:24 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 21:49:44 | WARNING  | app.socket_handlers:handle_printer_files:77 - Client requested files for unknown printer: None
+2025-05-03 21:49:48 | WARNING  | app.socket_handlers:handle_printer_files:77 - Client requested files for unknown printer: None
+2025-05-03 21:49:49 | WARNING  | app.socket_handlers:handle_printer_files:77 - Client requested files for unknown printer: None
+2025-05-03 21:49:53 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 21:49:54 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 21:49:54 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:49:54 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:49:55 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:49:55 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:49:57 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 21:49:57 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:49:57 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:49:57 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 21:49:57 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 21:51:00 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 21:51:00 | INFO     | __main__:run:257 - Database migrations completed
+2025-05-03 21:51:00 | INFO     | __main__:setup_auto_backup:192 - Automatic database backup task started
+2025-05-03 21:51:00 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 21:51:00 | INFO     | app:load_system_settings:168 - System settings loaded
+2025-05-03 21:51:00 | INFO     | app:create_app:104 - Application initialized
+2025-05-03 21:51:00 | INFO     | __main__:run:273 - Starting ChitUI server on 0.0.0.0:54780
+2025-05-03 21:51:21 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 21:51:22 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 21:51:22 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:51:22 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:51:22 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:51:22 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:51:24 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 21:51:24 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:51:24 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:51:24 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 21:51:24 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 21:51:26 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 21:51:44 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 21:51:44 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:51:44 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:51:44 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:51:44 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:51:46 | INFO     | app.printer_manager:_ws_close:430 - WS closed (None): Antoine – None
+2025-05-03 21:51:46 | INFO     | app.printer_manager:remove_printer:1077 - Printer Antoine (ID: 5346909419520100) removed successfully
+2025-05-03 21:51:46 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 21:51:46 | INFO     | app.socket_handlers:discovery_task:224 - New printer discovered: Antoine (192.168.0.97)
+2025-05-03 21:51:46 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:51:46 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:51:46 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 21:51:46 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 21:51:49 | INFO     | app.printer_manager:_ws_close:430 - WS closed (None): Antoine – None
+2025-05-03 21:51:49 | INFO     | app.printer_manager:remove_printer:1077 - Printer Antoine (ID: 5346909419520100) removed successfully
+2025-05-03 21:51:52 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:51:52 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:51:52 | INFO     | app.socket_handlers:handle_scan_lan:53 - Client requested LAN scan with timeout: 8s
+2025-05-03 21:51:53 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:51:53 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:51:53 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:51:53 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:51:53 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:51:55 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 21:51:55 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:51:55 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:51:55 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 21:51:55 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 21:52:01 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 21:52:02 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:52:02 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:52:02 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 21:52:02 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 21:52:40 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 21:52:40 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 21:52:40 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:52:40 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:52:41 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:52:41 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:52:43 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 21:52:43 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:52:43 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:52:43 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 21:52:43 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 21:53:01 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 21:53:02 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 21:53:02 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:53:02 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:53:03 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:53:03 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:53:05 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 21:53:05 | INFO     | __main__:run:257 - Database migrations completed
+2025-05-03 21:53:05 | INFO     | __main__:setup_auto_backup:192 - Automatic database backup task started
+2025-05-03 21:53:05 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 21:53:05 | INFO     | app:load_system_settings:168 - System settings loaded
+2025-05-03 21:53:05 | INFO     | app:create_app:104 - Application initialized
+2025-05-03 21:53:05 | INFO     | __main__:run:273 - Starting ChitUI server on 0.0.0.0:54780
+2025-05-03 21:54:27 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 21:54:27 | INFO     | __main__:run:259 - Database migrations completed
+2025-05-03 21:54:27 | INFO     | __main__:setup_auto_backup:194 - Automatic database backup task started
+2025-05-03 21:54:27 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 21:54:27 | INFO     | app:load_system_settings:168 - System settings loaded
+2025-05-03 21:54:27 | INFO     | app:create_app:104 - Application initialized
+2025-05-03 21:54:27 | INFO     | __main__:run:275 - Starting ChitUI server on 0.0.0.0:54780 (debug=False)
+2025-05-03 21:54:40 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 21:54:41 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 21:54:41 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:54:41 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 21:54:41 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:54:41 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 21:54:43 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 21:54:43 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 21:54:43 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 21:54:43 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 21:54:43 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 21:58:19 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 21:58:19 | INFO     | __main__:run:259 - Database migrations completed
+2025-05-03 21:58:19 | INFO     | __main__:setup_auto_backup:194 - Automatic database backup task started
+2025-05-03 21:58:19 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 21:58:19 | INFO     | app:load_system_settings:157 - System settings loaded
+2025-05-03 21:59:58 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 21:59:58 | INFO     | __main__:run:259 - Database migrations completed
+2025-05-03 21:59:58 | INFO     | __main__:setup_auto_backup:194 - Automatic database backup task started
+2025-05-03 21:59:58 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 21:59:58 | INFO     | app:load_system_settings:157 - System settings loaded
+2025-05-03 21:59:58 | INFO     | app:schedule_existing_jobs:170 - Existing print jobs scheduled
+2025-05-03 21:59:58 | INFO     | app:create_app:106 - Application initialized
+2025-05-03 21:59:58 | INFO     | __main__:run:275 - Starting ChitUI server on 0.0.0.0:54780 (debug=False)
+2025-05-03 22:00:17 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:00:17 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:00:18 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:00:18 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:00:18 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:00:18 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:00:20 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:00:20 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:00:20 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:00:20 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:00:20 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:00:28 | INFO     | app.socket_handlers:handle_action_print:97 - Client requested print action: 5346909419520100, file: /local/ROOK.goo
+2025-05-03 22:00:40 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:00:41 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:00:41 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:00:41 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:00:41 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:00:41 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:00:43 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:00:43 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:00:43 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:00:43 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:00:43 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:00:45 | INFO     | app.socket_handlers:handle_action_stop:133 - Client requested stop action: 5346909419520100
+2025-05-03 22:01:04 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:01:04 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:01:05 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:01:05 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:01:05 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:01:05 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:01:07 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:01:07 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:01:07 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:01:07 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:01:07 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:02:00 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:02:00 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:02:00 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:02:00 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 22:02:00 | INFO     | app:load_system_settings:157 - System settings loaded
+2025-05-03 22:02:00 | INFO     | app:schedule_existing_jobs:170 - Existing print jobs scheduled
+2025-05-03 22:02:00 | INFO     | app:create_app:106 - Application initialized
+2025-05-03 22:02:08 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:02:09 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:02:09 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:02:09 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:02:10 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:02:10 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:02:11 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:02:12 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:02:12 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:02:12 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:02:12 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:02:12 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:04:24 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:04:24 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:04:24 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:08:32 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:08:32 | INFO     | __main__:run:190 - Migrations applied
+2025-05-03 22:08:32 | INFO     | __main__:setup_auto_backup:156 - Auto-backup thread started
+2025-05-03 22:08:59 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:08:59 | INFO     | __main__:run:190 - Migrations applied
+2025-05-03 22:08:59 | INFO     | __main__:setup_auto_backup:156 - Auto-backup thread started
+2025-05-03 22:09:08 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:09:08 | INFO     | __main__:run:190 - Migrations applied
+2025-05-03 22:09:08 | INFO     | __main__:setup_auto_backup:156 - Auto-backup thread started
+2025-05-03 22:09:39 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:09:39 | INFO     | __main__:run:190 - Migrations applied
+2025-05-03 22:09:39 | INFO     | __main__:setup_auto_backup:156 - Auto-backup thread started
+2025-05-03 22:09:39 | INFO     | app:create_admin_user:129 - Admin user already exists: admin
+2025-05-03 22:09:39 | INFO     | app:load_system_settings:155 - System settings loaded
+2025-05-03 22:09:39 | INFO     | app:schedule_existing_jobs:168 - Existing print jobs scheduled
+2025-05-03 22:09:39 | INFO     | app:create_app:104 - Application initialized
+2025-05-03 22:10:28 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:10:28 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:10:28 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:10:28 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 22:10:28 | INFO     | app:load_system_settings:157 - System settings loaded
+2025-05-03 22:10:28 | INFO     | app:schedule_existing_jobs:170 - Existing print jobs scheduled
+2025-05-03 22:10:28 | INFO     | app:create_app:106 - Application initialized
+2025-05-03 22:10:41 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:10:41 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:10:41 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:10:41 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 22:10:41 | INFO     | app:load_system_settings:157 - System settings loaded
+2025-05-03 22:10:41 | INFO     | app:schedule_existing_jobs:170 - Existing print jobs scheduled
+2025-05-03 22:10:41 | INFO     | app:create_app:106 - Application initialized
+2025-05-03 22:10:50 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:10:50 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:11:15 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:11:15 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:11:16 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:11:16 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:11:18 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:11:18 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:11:18 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:11:18 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:11:18 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:11:18 | INFO     | app.printer_manager:debug_printer_connection:954 - Testing connection to printer at 192.168.0.97
+2025-05-03 22:11:18 | INFO     | app.printer_manager:debug_printer_connection:964 - Pinging 192.168.0.97...
+2025-05-03 22:11:18 | ERROR    | app.printer_manager:debug_printer_connection:978 - Ping error: expected str, bytes or os.PathLike object, not IPv4Address
+2025-05-03 22:11:18 | INFO     | app.printer_manager:debug_printer_connection:983 - Testing HTTP connection to http://192.168.0.97:3030/
+2025-05-03 22:11:18 | INFO     | app.printer_manager:debug_printer_connection:987 - HTTP response: 200
+2025-05-03 22:11:18 | INFO     | app.printer_manager:debug_printer_connection:996 - Testing WebSocket connection to ws://192.168.0.97:3030/websocket
+2025-05-03 22:11:18 | INFO     | app.printer_manager:debug_printer_connection:1001 - WebSocket connection successful
+2025-05-03 22:12:34 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:12:34 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:12:34 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:12:34 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 22:12:34 | INFO     | app:load_system_settings:157 - System settings loaded
+2025-05-03 22:12:34 | INFO     | app:schedule_existing_jobs:170 - Existing print jobs scheduled
+2025-05-03 22:12:34 | INFO     | app:create_app:106 - Application initialized
+2025-05-03 22:12:43 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:12:43 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:12:43 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:12:43 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 22:12:43 | INFO     | app:load_system_settings:157 - System settings loaded
+2025-05-03 22:12:43 | INFO     | app:schedule_existing_jobs:170 - Existing print jobs scheduled
+2025-05-03 22:12:43 | INFO     | app:create_app:106 - Application initialized
+2025-05-03 22:13:31 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:13:32 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:13:32 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:13:32 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:13:32 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:13:32 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:13:34 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:13:34 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:13:34 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:13:34 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:13:34 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:14:24 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:14:24 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:14:24 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:14:24 | INFO     | app:create_admin_user:131 - Admin user already exists: admin
+2025-05-03 22:14:24 | INFO     | app:load_system_settings:157 - System settings loaded
+2025-05-03 22:17:54 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:17:54 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:17:54 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:17:54 | INFO     | app:create_admin_user:134 - Admin user already exists: admin
+2025-05-03 22:17:54 | INFO     | app:load_system_settings:160 - System settings loaded
+2025-05-03 22:17:54 | INFO     | app:schedule_existing_jobs:173 - Existing print jobs scheduled
+2025-05-03 22:17:54 | INFO     | app:create_app:109 - Application initialized
+2025-05-03 22:21:17 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:21:17 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:21:17 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:21:17 | INFO     | app:create_admin_user:135 - Admin user already exists: admin
+2025-05-03 22:21:17 | INFO     | app:load_system_settings:161 - System settings loaded
+2025-05-03 22:21:17 | INFO     | app:schedule_existing_jobs:174 - Existing print jobs scheduled
+2025-05-03 22:21:17 | INFO     | app:create_app:110 - Application initialized
+2025-05-03 22:21:23 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:21:24 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:21:24 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:21:24 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:21:24 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:21:24 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:21:26 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:21:26 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:21:26 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:21:26 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:21:26 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:22:52 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:22:52 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:22:52 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:22:52 | INFO     | app:create_admin_user:135 - Admin user already exists: admin
+2025-05-03 22:22:52 | INFO     | app:load_system_settings:161 - System settings loaded
+2025-05-03 22:22:52 | INFO     | app:schedule_existing_jobs:174 - Existing print jobs scheduled
+2025-05-03 22:22:52 | INFO     | app:create_app:110 - Application initialized
+2025-05-03 22:22:58 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:22:58 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:22:59 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:22:59 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:22:59 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:22:59 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:23:01 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:23:01 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:23:01 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:23:01 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:23:01 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:23:01 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:24:20 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:24:20 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:24:20 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:24:20 | INFO     | app:create_admin_user:135 - Admin user already exists: admin
+2025-05-03 22:24:20 | INFO     | app:load_system_settings:161 - System settings loaded
+2025-05-03 22:24:20 | INFO     | app:schedule_existing_jobs:174 - Existing print jobs scheduled
+2025-05-03 22:24:20 | INFO     | app:create_app:110 - Application initialized
+2025-05-03 22:24:31 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:24:32 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:24:33 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:24:33 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:24:33 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:24:33 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:24:33 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:24:35 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:24:35 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:24:35 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:24:35 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:24:35 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:25:38 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:25:38 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:25:38 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:25:38 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:25:38 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:25:39 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:25:39 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:25:40 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:25:40 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:25:40 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:25:40 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:25:40 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:25:40 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:25:40 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:25:40 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:25:40 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:25:41 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:25:41 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:25:41 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:25:41 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:25:41 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:25:41 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:25:42 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:25:42 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:25:42 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:25:42 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:25:42 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:25:43 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:25:43 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:25:43 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:25:43 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:25:43 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:25:45 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:25:45 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:25:46 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:25:46 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:25:46 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:25:46 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:25:48 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:25:48 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:25:48 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:25:48 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:25:48 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:27:59 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:27:59 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:27:59 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:28:11 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:28:11 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:28:11 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:28:12 | INFO     | app:_create_admin_user:123 - Admin user exists: admin
+2025-05-03 22:28:12 | INFO     | app:_load_system_settings:149 - System settings loaded
+2025-05-03 22:28:12 | INFO     | app:_schedule_existing_jobs:160 - Existing print jobs scheduled
+2025-05-03 22:28:12 | INFO     | app:create_app:104 - Application initialized
+2025-05-03 22:29:00 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:29:00 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:29:01 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:29:01 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:29:01 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:29:01 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:29:03 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:29:03 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:29:03 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:29:03 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:29:03 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:29:03 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:29:55 | INFO     | app.auth:add_user:103 - User 'antoine1' created by admin: admin
+2025-05-03 22:30:50 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:30:51 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:30:51 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:30:51 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:30:51 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:30:53 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:30:53 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:30:53 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:30:53 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:30:53 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:31:44 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:31:44 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:31:44 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:31:44 | INFO     | app:_create_admin_user:126 - Admin user exists: admin
+2025-05-03 22:31:44 | INFO     | app:_load_system_settings:152 - System settings loaded
+2025-05-03 22:31:44 | INFO     | app:_schedule_existing_jobs:163 - Existing print jobs scheduled
+2025-05-03 22:31:44 | INFO     | app:create_app:107 - Application initialized
+2025-05-03 22:34:36 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:34:36 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:34:36 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:34:36 | INFO     | app:_create_admin_user:126 - Admin user exists: admin
+2025-05-03 22:34:36 | INFO     | app:_load_system_settings:152 - System settings loaded
+2025-05-03 22:34:36 | INFO     | app:_schedule_existing_jobs:163 - Existing print jobs scheduled
+2025-05-03 22:34:36 | INFO     | app:create_app:107 - Application initialized
+2025-05-03 22:34:42 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:34:43 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:34:43 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:34:43 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:34:43 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:34:43 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:34:45 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:34:45 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:34:45 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:34:45 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:34:45 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:34:46 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:34:58 | INFO     | app.auth:logout:55 - User admin logged out
+2025-05-03 22:35:03 | INFO     | app.auth:login:37 - User antoine1 logged in
+2025-05-03 22:35:04 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: antoine1
+2025-05-03 22:35:04 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: antoine1
+2025-05-03 22:35:04 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:35:04 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:35:04 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:35:06 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:35:06 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:35:06 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:35:06 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:35:06 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:35:12 | INFO     | app.socket_handlers:handle_action_delete:150 - Client requested delete action: 5346909419520100, file: /local/Torus(25x5).stl_0.05_2.3_2025_04_30_22_02.ctb
+2025-05-03 22:35:19 | INFO     | app.auth:logout:55 - User antoine1 logged out
+2025-05-03 22:35:19 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: antoine1
+2025-05-03 22:35:25 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:35:25 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:35:25 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:35:25 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:35:26 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:35:26 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:35:28 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:35:28 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:35:28 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:35:28 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:35:28 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:35:28 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:36:00 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:36:00 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:36:00 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:36:00 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:36:00 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:36:02 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:36:02 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:36:02 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:36:02 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:36:02 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:36:06 | INFO     | app.socket_handlers:handle_action_delete:150 - Client requested delete action: 5346909419520100, file: /local/Torus(25x5).stl_0.05_2.3_2025_04_30_22_02.ctb
+2025-05-03 22:38:46 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:38:46 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:38:46 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:38:46 | INFO     | app:_create_admin_user:126 - Admin user exists: admin
+2025-05-03 22:38:46 | INFO     | app:_load_system_settings:152 - System settings loaded
+2025-05-03 22:38:46 | INFO     | app:_schedule_existing_jobs:163 - Existing print jobs scheduled
+2025-05-03 22:38:46 | INFO     | app:create_app:107 - Application initialized
+2025-05-03 22:38:53 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:38:54 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:38:54 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:38:54 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:38:54 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:38:54 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:38:56 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:38:56 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:38:56 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:38:56 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:38:56 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:39:01 | INFO     | app.socket_handlers:handle_action_delete:150 - Client requested delete action: 5346909419520100, file: /local/Torus(25x5).stl_0.05_2.3_2025_04_30_22_02.ctb
+2025-05-03 22:39:06 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:40:54 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:40:54 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:40:54 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:40:55 | INFO     | app:_create_admin_user:126 - Admin user exists: admin
+2025-05-03 22:40:55 | INFO     | app:_load_system_settings:152 - System settings loaded
+2025-05-03 22:40:55 | INFO     | app:_schedule_existing_jobs:163 - Existing print jobs scheduled
+2025-05-03 22:40:55 | INFO     | app:create_app:107 - Application initialized
+2025-05-03 22:41:09 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:41:10 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:41:10 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:41:10 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:41:11 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:41:11 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:41:13 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:41:13 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:41:13 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:41:13 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:41:13 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:41:20 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:42:27 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:42:27 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:42:27 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:42:27 | INFO     | app:_create_admin_user:126 - Admin user exists: admin
+2025-05-03 22:42:27 | INFO     | app:_load_system_settings:152 - System settings loaded
+2025-05-03 22:42:27 | INFO     | app:_schedule_existing_jobs:163 - Existing print jobs scheduled
+2025-05-03 22:42:27 | INFO     | app:create_app:107 - Application initialized
+2025-05-03 22:42:36 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:42:37 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:42:37 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:42:37 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:42:37 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:42:37 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:42:38 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:42:39 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:42:39 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:42:39 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:42:39 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:42:39 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:42:45 | ERROR    | app.database.db_migration:run_migrations:39 - Failed to run migrations: Path doesn't exist: 'C:\\Users\\antoi\\chitUI1\\migrations'.  Please use the 'init' command to create a new scripts folder.
+2025-05-03 22:42:45 | INFO     | __main__:run:189 - Migrations applied
+2025-05-03 22:42:45 | INFO     | __main__:setup_auto_backup:155 - Auto-backup thread started
+2025-05-03 22:42:45 | INFO     | app:_create_admin_user:126 - Admin user exists: admin
+2025-05-03 22:42:45 | INFO     | app:_load_system_settings:152 - System settings loaded
+2025-05-03 22:42:45 | INFO     | app:_schedule_existing_jobs:163 - Existing print jobs scheduled
+2025-05-03 22:42:45 | INFO     | app:create_app:107 - Application initialized
+2025-05-03 22:42:51 | INFO     | app.auth:login:37 - User admin logged in
+2025-05-03 22:42:51 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:42:51 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:42:51 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:42:52 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:42:52 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:42:54 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:42:54 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:42:54 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:42:54 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:42:54 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 22:55:28 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 22:55:33 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 22:55:34 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 22:55:34 | INFO     | app.printer_manager:discover_printers:104 - Starting enhanced printer discovery
+2025-05-03 22:55:34 | INFO     | app.printer_manager:scan_interface:203 - Discovered 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 22:55:34 | INFO     | app.printer_manager:save_discovered_printer:304 - Discovered: Antoine (192.168.0.97)
+2025-05-03 22:55:36 | INFO     | app.printer_manager:discover_printers:168 - Discovery completed: 1 printers found
+2025-05-03 22:55:36 | INFO     | app.printer_manager:connect_printer:383 - Connecting to printer: Antoine (192.168.0.97)
+2025-05-03 22:55:36 | INFO     | app.printer_manager:connect_printer:389 - ▶ Trying connection on ws://192.168.0.97:3030/websocket
+2025-05-03 22:55:36 | INFO     | app.printer_manager:connect_printers:1040 - Connected to 1/1 printers
+2025-05-03 22:55:36 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 23:29:47 | ERROR    | app.printer_manager:_ws_error:435 - WS error for 5346909419520100: ping/pong timed out
+2025-05-03 23:30:05 | ERROR    | app.printer_manager:_ws_error:435 - WS error for 5346909419520100: [WinError 10054] An existing connection was forcibly closed by the remote host
+2025-05-03 23:30:06 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 23:30:10 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 23:35:58 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 23:35:58 | ERROR    | app.printer_manager:_ws_send:94 - Send STATUS failed: socket is already closed.
+2025-05-03 23:35:58 | ERROR    | app.printer_manager:_ws_send:94 - Send ATTRIBUTES failed: socket is already closed.
+2025-05-03 23:35:58 | ERROR    | app.printer_manager:_ws_send:94 - Send FILE_LIST failed: socket is already closed.
+2025-05-03 23:36:02 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 23:40:10 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 23:40:12 | INFO     | app.printer_manager:_ws_open:418 - WS connected: Antoine
+2025-05-03 23:42:29 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin

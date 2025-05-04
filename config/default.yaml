@@ -1,32 +1,58 @@
-# ChitUI Configuration File
+# ─────────────────────────────────────────────────────────────────────────────
+# ChitUI Settings
+# ─────────────────────────────────────────────────────────────────────────────
 
 # Server Settings
-host: "0.0.0.0"
-port: 54780
-debug: false
-log_level: "INFO"
+host: "0.0.0.0"       # IP or hostname to bind the web server
+port: 54780            # TCP port for the web server
+debug: false           # Enable Flask debug mode (auto-reload, detailed errors)
+log_level: "INFO"     # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
 
-# Directory Settings
-upload_folder: "uploads"
-log_folder: "logs"
-config_folder: "config"
+# Security
+secret_key: ""        # Used by Flask for sessions; auto-generated if empty
+admin_user: "admin"   # Initial administrator username
+admin_password: ""    # Administrator password; if empty, prompts on first run
 
-# Authentication
-admin_user: "admin"
-admin_password: "admin"
+# Directory Paths
+upload_folder: "uploads"    # Directory for uploaded print files
+log_folder: "logs"          # Directory for application logs
+config_folder: "config"     # Directory for additional config files
+backup_folder: "backups"    # Directory where DB backups are stored
 
-# Database Settings
-# SQLite (Default)
+# Database Connection
+# Supports sqlite, MySQL, PostgreSQL
 database_uri: "sqlite:///chitui.db"
+# Example MySQL:
+# database_uri: "mysql+pymysql://user:pass@localhost/chitui"
+# Example PostgreSQL:
+# database_uri: "postgresql+psycopg2://user:pass@localhost/chitui"
 
-# MySQL Example (uncomment to use)
-# database_uri: "mysql+pymysql://username:password@localhost/chitui"
-
-# PostgreSQL Example (uncomment to use)
-# database_uri: "postgresql+psycopg2://username:password@localhost/chitui"
+# Scheduler & Backup
+auto_backup_enabled: true    # Turn on periodic DB backups
+auto_backup_interval: 24     # Hours between automatic backups
+auto_backup_keep: 7          # Number of old backups to keep
 
 # Printer Discovery
-discovery_timeout: 1
+discovery_timeout: 2         # Seconds to wait for network scan responses
+auto_discovery: true         # Enable discovery at startup
 
-# Secret Key (automatically generated if not set)
-# secret_key: ""
+# Upload Settings
+max_upload_size: "1GB"      # Max file upload size (Flask MAX_CONTENT_LENGTH)
+allowed_extensions:
+  - ctb
+  - goo
+  - prz
+
+# Swagger / API Documentation
+swagger_enabled: true        # Serve Swagger UI at /swagger
+
+# Scheduler (APScheduler)
+scheduler:
+  timezone: "UTC"            # Timezone for scheduled jobs
+  start_on_boot: true         # Start APScheduler when app boots
+
+# Custom Settings (stored in DB)
+system_settings:
+  version: "1.0.0"
+  enable_camera_stream: true  # Global toggle for camera feeds
+  uploads_enabled: true       # Toggle ability to upload files via UI

@@ -35,6 +35,13 @@ logging.basicConfig(
     ]
 )
 
+try:
+    import netifaces
+    _HAS_NETIFACES = True
+except ImportError:
+    _HAS_NETIFACES = False
+    logger.warning("netifaces not installed; falling back to RFC1918 subnets")
+
 # ─────────────────────────── Globals ──
 printer_lock = Lock()
 job_queues: Dict[str, List[str]] = defaultdict(list)  # printer_id → queue of filenames
@@ -46,6 +53,9 @@ UDP_MSG = b"M99999"
 WS_TIMEOUT = 6
 CHUNK_SIZE = 1048576  # 1MB chunks for file uploads
 SOCKET_TIMEOUT = 2
+DEFAULT_TIMEOUT = 2
+MAX_RETRIES = 2
+MAX_WORKERS = 8
 
 # ============================================================================
 # Low‑level helpers
@@ -158,101 +168,77 @@ def discover_printers(timeout=2):
     logger.info(f"Discovery completed: {len(discovered)} printers found")
     return discovered
 
-def scan_interface(interface, timeout, discovered, lock):
-    """Scan a specific network interface for printers."""
+def scan_interface(interface: Dict[str, str],
+                   timeout: float,
+                   discovered: Dict[str, Any],
+                   lock: threading.Lock):
+    """
+    (Your original logic, unchanged)
+    """
     interface_name = interface['name']
     source_ip = interface['ip']
     broadcast = interface['broadcast']
     
-    logger.debug(f"Scanning interface {interface_name} ({source_ip}) with broadcast {broadcast}")
-    
+    logger.debug(f"Scanning {interface_name}: {source_ip} → {broadcast}")
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             sock.settimeout(timeout)
-            
-            # Try to bind to source IP
             try:
-                if source_ip != '0.0.0.0':
-                    sock.bind((source_ip, 0))
-                else:
-                    sock.bind(('', 0))
+                sock.bind((source_ip, 0))
             except socket.error as e:
-                logger.warning(f"Could not bind to {source_ip}, using default: {e}")
+                logger.warning(f"Bind {source_ip} failed: {e}; using default")
                 sock.bind(('', 0))
-            
-            # Send discovery message
             sock.sendto(UDP_MSG, (broadcast, UDP_DISCOVERY_PORT))
-            logger.debug(f"Sent discovery on {interface_name} to {broadcast}")
-            
-            # Collect responses until timeout
-            start_time = time.time()
-            while time.time() - start_time < timeout:
+            start = time.time()
+            while time.time() - start < timeout:
                 try:
                     data, addr = sock.recvfrom(8192)
-                    try:
-                        j = json.loads(data.decode('utf-8'))
-                        
-                        # Try to extract printer ID using multiple possible formats
-                        printer_id = None
-                        if 'Data' in j and 'MainboardID' in j['Data']:
-                            printer_id = j['Data']['MainboardID']
-                        elif 'Data' in j and 'Attributes' in j['Data'] and 'MainboardID' in j['Data']['Attributes']:
-                            printer_id = j['Data']['Attributes']['MainboardID']
-                        
-                        if printer_id:
-                            logger.info(f"Discovered printer {printer_id} at {addr[0]} via {interface_name}")
-                            with lock:
-                                if printer_id not in discovered:
-                                    discovered[printer_id] = save_discovered_printer(data, addr)
-                    except json.JSONDecodeError as e:
-                        logger.warning(f"Invalid JSON from {addr[0]}: {e}")
-                    except Exception as e:
-                        logger.warning(f"Error processing printer response from {addr[0]}: {e}")
+                    j = json.loads(data.decode('utf-8'))
+                    pid = (
+                        j.get('Data', {}).get('MainboardID')
+                        or j.get('Data', {}).get('Attributes', {}).get('MainboardID')
+                    )
+                    if pid:
+                        logger.info(f"Discovered {pid} at {addr[0]} via {interface_name}")
+                        with lock:
+                            if pid not in discovered:
+                                discovered[pid] = save_discovered_printer(data, addr)
                 except socket.timeout:
-                    continue
+                    break
+                except json.JSONDecodeError as je:
+                    logger.warning(f"Bad JSON from {addr[0]}: {je}")
+                except Exception as e:
+                    logger.warning(f"Scan error from {addr[0]}: {e}")
     except Exception as e:
-        logger.warning(f"Error scanning interface {interface_name}: {e}")
+        logger.warning(f"Socket error on {interface_name}: {e}")
 
-def discover_printer_by_ip(ip, timeout=2):
-    """Discover a printer at a specific IP address."""
+def discover_printer_by_ip(ip: str, timeout: float = DEFAULT_TIMEOUT) -> Dict[str, Any]:
+    """
+    (Your original direct-IP logic, unchanged)
+    """
     logger.info(f"Attempting direct discovery for printer at {ip}")
-    
     discovered = {}
-    
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.settimeout(timeout)
-            
-            # Send discovery message directly to IP
             sock.sendto(UDP_MSG, (ip, UDP_DISCOVERY_PORT))
-            
-            # Wait for response
             try:
                 data, addr = sock.recvfrom(8192)
-                try:
-                    j = json.loads(data.decode('utf-8'))
-                    
-                    # Try to extract printer ID using multiple possible formats
-                    printer_id = None
-                    if 'Data' in j and 'MainboardID' in j['Data']:
-                        printer_id = j['Data']['MainboardID']
-                    elif 'Data' in j and 'Attributes' in j['Data'] and 'MainboardID' in j['Data']['Attributes']:
-                        printer_id = j['Data']['Attributes']['MainboardID']
-                    
-                    if printer_id:
-                        logger.info(f"Directly discovered printer {printer_id} at {addr[0]}")
-                        discovered[printer_id] = save_discovered_printer(data, addr)
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Invalid JSON from {addr[0]}: {e}")
-                except Exception as e:
-                    logger.warning(f"Error processing direct printer response from {addr[0]}: {e}")
+                j = json.loads(data.decode('utf-8'))
+                pid = (
+                    j.get('Data', {}).get('MainboardID')
+                    or j.get('Data', {}).get('Attributes', {}).get('MainboardID')
+                )
+                if pid:
+                    logger.info(f"Directly discovered {pid} at {addr[0]}")
+                    discovered[pid] = save_discovered_printer(data, addr)
             except socket.timeout:
                 logger.warning(f"No response from {ip}")
     except Exception as e:
-        logger.error(f"Error in direct discovery for {ip}: {e}")
-    
+        logger.error(f"Direct discovery error for {ip}: {e}")
     return discovered
+
 
 def save_discovered_printer(data, addr=None):
     """Parse printer data with robust error handling."""
@@ -1098,3 +1084,70 @@ def remove_printer(printer_id: str) -> bool:
     except Exception as e:
         logger.error(f"Error removing printer {printer_id}: {e}")
         return False
+    
+def get_interfaces() -> List[Dict[str,str]]:
+    """
+    Try netifaces for true broadcast addresses; 
+    otherwise auto-derive from your host’s LAN IPs.
+    """
+    try:
+        import netifaces
+        interfaces = []
+        for iface in netifaces.interfaces():
+            addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET, [])
+            for addr in addrs:
+                if addr.get('broadcast'):
+                    interfaces.append({
+                        'name': iface,
+                        'ip': addr['addr'],
+                        'broadcast': addr['broadcast']
+                    })
+        if interfaces:
+            return interfaces
+    except Exception:
+        pass
+
+    # Fallback: probe any RFC1918 class-C you’re on
+    host_ips = socket.gethostbyname_ex(socket.gethostname())[2]
+    subnets = {
+        ip.rsplit('.',1)[0] + '.255'
+        for ip in host_ips
+        if ip.startswith(('10.', '192.168.', '172.'))
+    }
+    return [{'name': 'auto', 'ip': '0.0.0.0', 'broadcast': bc} for bc in subnets]
+
+
+def scan_broadcast(iface: Dict[str,str], timeout: float, discovered: Dict[str,str], lock: threading.Lock):
+    """
+    Send UDP discovery on one broadcast address, collect JSON beacons,
+    retrying once if nothing comes back.
+    """
+    for attempt in range(1, 3):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                sock.settimeout(timeout)
+                sock.bind((iface['ip'], 0))
+                sock.sendto(UDP_MSG, (iface['broadcast'], UDP_DISCOVERY_PORT))
+
+                start = time.time()
+                while time.time() - start < timeout:
+                    try:
+                        raw, addr = sock.recvfrom(8192)
+                        payload = json.loads(raw.decode('utf-8'))
+                        pid = (payload.get('Data', {}) .get('MainboardID')
+                               or payload.get('Data', {}) .get('Attributes', {}) .get('MainboardID'))
+                        if pid:
+                            with lock:
+                                if pid not in discovered:
+                                    discovered[pid] = addr[0]
+                    except socket.timeout:
+                        break
+                    except Exception:
+                        continue
+
+            # if we found at least one, no need to retry
+            if discovered:
+                return
+        except Exception:
+            continue

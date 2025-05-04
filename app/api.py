@@ -1,23 +1,17 @@
-"""
-REST API endpoints for ChitUI
-"""
-from __future__ import annotations
+# app/api.py
 
+from __future__ import annotations
+import os
 import time
 import uuid
 from datetime import datetime
 from typing import Dict, Any
 
 import requests
-from flask import (
-    Blueprint,
-    Response,
-    abort,
-    jsonify,
-    request,
-)
+from flask import Blueprint, current_app, request, jsonify, abort, Response
 from flask_login import current_user, login_required
 from loguru import logger
+from marshmallow import Schema, fields, ValidationError
 
 from app import printers, sched, upload_progress
 from app.models import JobStatus, PrintJob, db
@@ -36,14 +30,65 @@ from app.printer_manager import (
     remove_printer
 )
 
+# ─── Blueprint ────────────────────────────────────────────────────────────────
 
-# Create blueprint
 api_bp = Blueprint('api', __name__)
 
 
+# ─── Schemas ──────────────────────────────────────────────────────────────────
+
+class AddPrinterSchema(Schema):
+    name = fields.String(required=True)
+    ip = fields.IP(required=True)
+    model = fields.String(missing="unknown")
+    brand = fields.String(missing="unknown")
+
+
+class PrintRequestSchema(Schema):
+    filename = fields.String(required=True)
+    queue = fields.Boolean(missing=False)
+
+
+class DiagnoseSchema(Schema):
+    ip = fields.IP(required=True)
+
+
+class JobCreateSchema(Schema):
+    printer_id = fields.String(required=True)
+    filename = fields.String(required=True)
+    datetime = fields.DateTime(required=True)
+
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+def make_success(data: Any = None) -> Any:
+    payload = {"success": True}
+    if data is not None:
+        payload["data"] = data
+    return jsonify(payload)
+
+
+def make_error(code: str, message: str, http_status: int = 400) -> Any:
+    return jsonify({"success": False, "error": {"code": code, "message": message}}), http_status
+
+
+def get_last_log_lines(log_path: str, num_lines: int = 500) -> list[str]:
+    """
+    Read the last `num_lines` from the given log file.
+    Raises FileNotFoundError if the file does not exist.
+    """
+    if not os.path.exists(log_path):
+        raise FileNotFoundError(f"Log file not found at {log_path}")
+    with open(log_path, 'r') as f:
+        # read all lines and slice
+        lines = f.readlines()
+    return lines[-num_lines:]
+
+
+# ─── Swagger JSON ─────────────────────────────────────────────────────────────
+
 @api_bp.route('/swagger.json')
 def swagger_json():
-    """Serve Swagger specification JSON."""
     return jsonify({
         "swagger": "2.0",
         "info": {
@@ -53,893 +98,605 @@ def swagger_json():
         },
         "basePath": "/api",
         "schemes": ["http", "https"],
-        "consumes": ["application/json"],
+        "consumes": ["application/json", "application/x-www-form-urlencoded"],
         "produces": ["application/json"],
+        "tags": [
+            { "name": "Authentication", "description": "User login/logout" },
+            { "name": "Printers",       "description": "Printer management" },
+            { "name": "PrintJobs",      "description": "Job scheduling" },
+            { "name": "System",         "description": "System info & logs" }
+        ],
         "paths": {
+            "/auth/login": {
+                "post": {
+                    "tags": ["Authentication"],
+                    "summary": "User login",
+                    "description": "Authenticate with username & password (sets session cookie)",
+                    "consumes": ["application/x-www-form-urlencoded"],
+                    "parameters": [
+                        {
+                            "in": "formData",
+                            "name": "username",
+                            "type": "string",
+                            "required": True,
+                            "description": "Your username"
+                        },
+                        {
+                            "in": "formData",
+                            "name": "password",
+                            "type": "string",
+                            "required": True,
+                            "description": "Your password"
+                        },
+                        {
+                            "in": "formData",
+                            "name": "remember",
+                            "type": "boolean",
+                            "required": False,
+                            "description": "Stay logged in (optional)"
+                        }
+                    ],
+                    "responses": {
+                        "200": { "description": "Login successful" },
+                        "401": { "description": "Invalid credentials" }
+                    }
+                }
+            },
+            "/auth/logout": {
+                "get": {
+                    "tags": ["Authentication"],
+                    "summary": "User logout",
+                    "description": "Clear session and log out",
+                    "responses": {
+                        "302": { "description": "Redirect to login page" }
+                    }
+                }
+            },
             "/printer/list": {
                 "get": {
+                    "tags": ["Printers"],
                     "summary": "Get list of printers",
-                    "description": "Returns all connected printers",
-                    "responses": {
-                        "200": {
-                            "description": "List of printers"
-                        }
-                    }
+                    "responses": { "200": { "description": "Success" } }
                 }
             },
             "/printer/discover": {
                 "post": {
+                    "tags": ["Printers"],
                     "summary": "Discover printers",
-                    "description": "Initiate printer discovery on the network",
-                    "responses": {
-                        "200": {
-                            "description": "Discovery initiated"
-                        }
-                    }
+                    "responses": { "200": { "description": "Discovery initiated" } }
                 }
             },
             "/printer/{id}": {
                 "get": {
+                    "tags": ["Printers"],
                     "summary": "Get printer details",
-                    "description": "Returns details for a specific printer",
                     "parameters": [
-                        {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        }
+                        { "name": "id", "in": "path", "required": True, "type": "string" }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "Printer details"
-                        },
-                        "404": {
-                            "description": "Printer not found"
-                        }
+                        "200": { "description": "Printer details" },
+                        "404": { "description": "Not found" }
                     }
                 }
             },
             "/printer/add": {
                 "post": {
+                    "tags": ["Printers"],
                     "summary": "Add printer manually",
-                    "description": "Add a printer by IP address",
                     "parameters": [
                         {
-                            "name": "body",
-                            "in": "body",
-                            "required": True,
+                            "in": "body", "name": "body", "required": True,
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "name": {
-                                        "type": "string",
-                                        "description": "Printer name"
-                                    },
-                                    "ip": {
-                                        "type": "string",
-                                        "description": "Printer IP address"
-                                    },
-                                    "model": {
-                                        "type": "string",
-                                        "description": "Printer model (optional)"
-                                    },
-                                    "brand": {
-                                        "type": "string",
-                                        "description": "Printer brand (optional)"
-                                    }
+                                    "name":  { "type": "string" },
+                                    "ip":    { "type": "string" },
+                                    "model": { "type": "string" },
+                                    "brand": { "type": "string" }
                                 },
                                 "required": ["name", "ip"]
                             }
                         }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "Printer added successfully"
-                        },
-                        "400": {
-                            "description": "Invalid request"
-                        },
-                        "500": {
-                            "description": "Failed to add printer"
-                        }
+                        "200": { "description": "Printer added" },
+                        "400": { "description": "Invalid input" },
+                        "500": { "description": "Failed to add" }
                     }
                 }
             },
             "/printer/{id}/files": {
                 "get": {
-                    "summary": "Get printer files",
-                    "description": "Returns list of files on the printer",
+                    "tags": ["Printers"],
+                    "summary": "List files",
                     "parameters": [
-                        {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        },
-                        {
-                            "name": "path",
-                            "in": "query",
-                            "required": False,
-                            "type": "string",
-                            "description": "File path (default: /local)"
-                        }
+                        { "name": "id", "in": "path",  "required": True,  "type": "string" },
+                        { "name": "path","in": "query", "required": False, "type": "string", "default": "/local" }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "List of files"
-                        },
-                        "404": {
-                            "description": "Printer not found"
-                        }
+                        "200": { "description": "File list" },
+                        "404": { "description": "Printer not found" }
                     }
                 }
             },
             "/printer/{id}/print": {
                 "post": {
-                    "summary": "Start print",
-                    "description": "Start printing a file",
+                    "tags": ["PrintJobs"],
+                    "summary": "Start or queue a print",
                     "parameters": [
+                        { "name": "id", "in": "path", "required": True, "type": "string" },
                         {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        },
-                        {
-                            "name": "body",
-                            "in": "body",
-                            "required": True,
+                            "in": "body", "name": "body", "required": True,
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "filename": {
-                                        "type": "string",
-                                        "description": "File to print"
-                                    },
-                                    "queue": {
-                                        "type": "boolean",
-                                        "description": "Add to queue if printer is busy"
-                                    }
+                                    "filename": { "type": "string" },
+                                    "queue":    { "type": "boolean", "default": False }
                                 },
                                 "required": ["filename"]
                             }
                         }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "Print started or queued"
-                        },
-                        "404": {
-                            "description": "Printer or file not found"
-                        }
+                        "200": { "description": "Print started or queued" },
+                        "404": { "description": "Printer or file not found" }
                     }
                 }
             },
             "/printer/{id}/pause": {
                 "post": {
+                    "tags": ["PrintJobs"],
                     "summary": "Pause print",
-                    "description": "Pause the current print job",
                     "parameters": [
-                        {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        }
+                        { "name": "id", "in": "path", "required": True, "type": "string" }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "Print paused"
-                        },
-                        "404": {
-                            "description": "Printer not found"
-                        }
+                        "200": { "description": "Paused" },
+                        "404": { "description": "Not found" }
                     }
                 }
             },
             "/printer/{id}/resume": {
                 "post": {
+                    "tags": ["PrintJobs"],
                     "summary": "Resume print",
-                    "description": "Resume a paused print job",
                     "parameters": [
-                        {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        }
+                        { "name": "id", "in": "path", "required": True, "type": "string" }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "Print resumed"
-                        },
-                        "404": {
-                            "description": "Printer not found"
-                        }
+                        "200": { "description": "Resumed" },
+                        "404": { "description": "Not found" }
                     }
                 }
             },
             "/printer/{id}/stop": {
                 "post": {
+                    "tags": ["PrintJobs"],
                     "summary": "Stop print",
-                    "description": "Stop the current print job",
                     "parameters": [
-                        {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        }
+                        { "name": "id", "in": "path", "required": True, "type": "string" }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "Print stopped"
-                        },
-                        "404": {
-                            "description": "Printer not found"
-                        }
+                        "200": { "description": "Stopped" },
+                        "404": { "description": "Not found" }
                     }
                 }
             },
             "/printer/{id}/camera": {
                 "post": {
-                    "summary": "Control camera",
-                    "description": "Enable or disable the printer camera",
+                    "tags": ["Printers"],
+                    "summary": "Enable/disable camera",
                     "parameters": [
+                        { "name": "id", "in": "path", "required": True, "type": "string" },
                         {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        },
-                        {
-                            "name": "body",
-                            "in": "body",
-                            "required": True,
+                            "in": "body", "name": "body", "required": True,
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "enable": {
-                                        "type": "boolean",
-                                        "description": "Enable or disable camera"
-                                    }
+                                    "enable": { "type": "boolean" }
                                 },
                                 "required": ["enable"]
                             }
                         }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "Camera status updated"
-                        },
-                        "404": {
-                            "description": "Printer not found"
-                        }
+                        "200": { "description": "Updated" },
+                        "404": { "description": "Not found" }
+                    }
+                }
+            },
+            "/printer/{id}/camera/status": {
+                "get": {
+                    "tags": ["Printers"],
+                    "summary": "Get camera status",
+                    "parameters": [
+                        { "name": "id", "in": "path", "required": True, "type": "string" }
+                    ],
+                    "responses": {
+                        "200": { "description": "Camera status" },
+                        "400": { "description": "Not supported" },
+                        "404": { "description": "Not found" }
                     }
                 }
             },
             "/printer/{id}/delete": {
                 "post": {
+                    "tags": ["Printers"],
                     "summary": "Delete file",
-                    "description": "Delete a file from the printer",
                     "parameters": [
+                        { "name": "id", "in": "path", "required": True, "type": "string" },
                         {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        },
-                        {
-                            "name": "body",
-                            "in": "body",
-                            "required": True,
+                            "in": "body", "name": "body", "required": True,
                             "schema": {
                                 "type": "object",
-                                "properties": {
-                                    "filename": {
-                                        "type": "string",
-                                        "description": "File to delete"
-                                    }
-                                },
+                                "properties": { "filename": { "type": "string" } },
                                 "required": ["filename"]
                             }
                         }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "File deleted"
-                        },
-                        "404": {
-                            "description": "Printer or file not found"
-                        }
+                        "200": { "description": "Deleted" },
+                        "404": { "description": "Not found" }
                     }
                 }
             },
             "/printer/{id}/rename": {
                 "post": {
+                    "tags": ["Printers"],
                     "summary": "Rename printer",
-                    "description": "Change the display name of a printer",
                     "parameters": [
+                        { "name": "id", "in": "path", "required": True, "type": "string" },
                         {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        },
-                        {
-                            "name": "body",
-                            "in": "body",
-                            "required": True,
+                            "in": "body", "name": "body", "required": True,
                             "schema": {
                                 "type": "object",
-                                "properties": {
-                                    "name": {
-                                        "type": "string",
-                                        "description": "New printer name"
-                                    }
-                                },
+                                "properties": { "name": { "type": "string" } },
                                 "required": ["name"]
                             }
                         }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "Printer renamed"
-                        },
-                        "404": {
-                            "description": "Printer not found"
-                        }
+                        "200": { "description": "Renamed" },
+                        "404": { "description": "Not found" }
                     }
                 }
             },
             "/printer/diagnostics": {
                 "post": {
+                    "tags": ["System"],
                     "summary": "Run diagnostics",
-                    "description": "Test connectivity to a printer IP address",
                     "parameters": [
                         {
-                            "name": "body",
-                            "in": "body",
-                            "required": True,
+                            "in": "body", "name": "body", "required": True,
                             "schema": {
                                 "type": "object",
-                                "properties": {
-                                    "ip": {
-                                        "type": "string",
-                                        "description": "IP address to test"
-                                    }
-                                },
+                                "properties": { "ip": { "type": "string" } },
                                 "required": ["ip"]
                             }
                         }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "Diagnostic results"
-                        },
-                        "400": {
-                            "description": "Invalid IP address"
-                        }
+                        "200": { "description": "Results" },
+                        "400": { "description": "Invalid IP" }
                     }
                 }
             },
             "/camera/{id}/frame": {
                 "get": {
-                    "summary": "Get camera frame",
-                    "description": "Retrieve a single camera frame from a printer",
+                    "tags": ["System"],
+                    "summary": "Single camera frame",
                     "parameters": [
-                        {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        }
+                        { "name": "id", "in": "path", "required": True, "type": "string" }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "JPEG image"
-                        },
-                        "404": {
-                            "description": "Printer or camera not found"
-                        }
+                        "200": { "description": "JPEG" },
+                        "404": { "description": "Not found" }
                     }
                 }
             },
             "/camera/{id}/stream": {
                 "get": {
-                    "summary": "Camera stream",
-                    "description": "Stream camera feed from a printer (MJPEG)",
+                    "tags": ["System"],
+                    "summary": "Camera MJPEG stream",
                     "parameters": [
-                        {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "type": "string",
-                            "description": "Printer ID"
-                        }
+                        { "name": "id", "in": "path", "required": True, "type": "string" }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "MJPEG stream"
-                        },
-                        "404": {
-                            "description": "Printer or camera not found"
-                        }
+                        "200": { "description": "MJPEG" },
+                        "404": { "description": "Not found" }
                     }
                 }
             },
             "/uploads": {
                 "get": {
-                    "summary": "Get upload tasks",
-                    "description": "List all upload tasks",
-                    "responses": {
-                        "200": {
-                            "description": "List of upload tasks"
-                        }
-                    }
+                    "tags": ["System"],
+                    "summary": "List uploads",
+                    "responses": { "200": { "description": "Upload tasks" } }
                 }
             },
             "/jobs": {
                 "get": {
+                    "tags": ["PrintJobs"],
                     "summary": "List jobs",
-                    "description": "Get scheduled print jobs",
                     "parameters": [
-                        {
-                            "name": "history",
-                            "in": "query",
-                            "required": False,
-                            "type": "boolean",
-                            "description": "Include job history"
-                        }
+                        { "name": "history", "in": "query", "required": False, "type": "boolean" }
                     ],
-                    "responses": {
-                        "200": {
-                            "description": "List of jobs"
-                        }
-                    }
+                    "responses": { "200": { "description": "Scheduled jobs" } }
                 },
                 "post": {
+                    "tags": ["PrintJobs"],
                     "summary": "Create job",
-                    "description": "Schedule a print job",
                     "parameters": [
                         {
-                            "name": "body",
-                            "in": "body",
-                            "required": True,
+                            "in": "body", "name": "body", "required": True,
                             "schema": {
                                 "type": "object",
                                 "properties": {
-                                    "printer_id": {
-                                        "type": "string",
-                                        "description": "Printer ID"
-                                    },
-                                    "filename": {
-                                        "type": "string",
-                                        "description": "File to print"
-                                    },
-                                    "datetime": {
-                                        "type": "string",
-                                        "description": "ISO8601 datetime"
-                                    }
+                                    "printer_id": { "type": "string" },
+                                    "filename":   { "type": "string" },
+                                    "datetime":   { "type": "string" }
                                 },
                                 "required": ["printer_id", "filename", "datetime"]
                             }
                         }
                     ],
                     "responses": {
-                        "200": {
-                            "description": "Job created"
-                        },
-                        "400": {
-                            "description": "Invalid request"
-                        }
+                        "200": { "description": "Job created" },
+                        "400": { "description": "Bad request" }
+                    }
+                }
+            },
+            "/printer/{id}/remove": {
+                "post": {
+                    "tags": ["Printers"],
+                    "summary": "Remove printer",
+                    "parameters": [
+                        { "name": "id", "in": "path", "required": True, "type": "string" }
+                    ],
+                    "responses": {
+                        "200": { "description": "Removed" },
+                        "404": { "description": "Not found" },
+                        "500": { "description": "Failed" }
+                    }
+                }
+            },
+            "/logs": {
+                "get": {
+                    "tags": ["System"],
+                    "summary": "Get last N log lines",
+                    "responses": {
+                        "200": { "description": "Log lines" },
+                        "404": { "description": "No log file" }
                     }
                 }
             },
             "/health": {
                 "get": {
-                    "summary": "API health",
-                    "description": "Check API health and uptime",
-                    "responses": {
-                        "200": {
-                            "description": "Health status"
-                        }
-                    }
+                    "tags": ["System"],
+                    "summary": "API health & uptime",
+                    "responses": { "200": { "description": "Health info" } }
                 }
             }
         }
     })
 
 
-def validate_ip(ip: str) -> bool:
-    """Validate IP address format with proper error handling."""
-    try:
-        parts = ip.split('.')
-        if len(parts) != 4:
-            return False
-        return all(0 <= int(p) <= 255 for p in parts)
-    except (ValueError, TypeError):
-        return False
 
 
-# ───────────────────────────────────────── Printer Management ──
+# ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @api_bp.route("/printer/list")
 @login_required
 def list_printers():
-    """Return the current in-memory printer registry."""
-    return jsonify({pid: dict(d) for pid, d in printers.items()})
+    return make_success({pid: dict(d) for pid, d in printers.items()})
 
 
 @api_bp.route('/printer/discover', methods=['POST'])
 @login_required
 def discover_printers():
-    """Initiate printer discovery in background thread."""
+    """Kick off discovery in background."""
     from app.socket_handlers import discovery_task
     from threading import Thread
-    
     Thread(target=discovery_task, daemon=True).start()
-    
-    return jsonify({
-        "success": True,
-        "message": "Discovery initiated"
-    })
+    return make_success({"message": "Discovery initiated"})
 
 
 @api_bp.route('/printer/<printer_id>')
 @login_required
 def get_printer(printer_id):
-    """Get details for a specific printer."""
-    if printer_id not in printers:
-        return jsonify({"error": "Printer not found"}), 404
-    
-    return jsonify(printers[printer_id])
+    printer = printers.get(printer_id)
+    if not printer:
+        return make_error("NOT_FOUND", "Printer not found", 404)
+    return make_success(printer)
 
 
 @api_bp.route("/printer/add", methods=["POST"])
 @login_required
 def add_printer():
-    """Manually add a printer by IP address."""
-    data: Dict = request.get_json(force=True)
-    name = data.get("name")
-    ip = data.get("ip")
-    model = data.get("model", "unknown")
-    brand = data.get("brand", "unknown")
+    try:
+        payload = AddPrinterSchema().load(request.get_json(force=True))
+    except ValidationError as err:
+        return make_error("INVALID_INPUT", err.messages, 400)
 
-    if not name or not ip:
-        return jsonify(success=False, error="Name and IP address are required"), 400
-    if not validate_ip(ip):
-        return jsonify(success=False, error="Invalid IP address"), 400
-
-    printer = add_printer_manually(name, ip, model, brand)
+    printer = add_printer_manually(**payload)
     if not printer:
-        return (
-            jsonify(success=False, error=f"Failed to reach printer at {ip}"),
-            500,
-        )
+        return make_error("ADD_FAILED", f"Cannot reach printer at {payload['ip']}", 500)
 
-    logger.info(f"Printer added manually: {name} ({ip})")
-    return jsonify(success=True, printer_id=printer["id"])
+    logger.info(f"Printer added: {printer['name']} ({printer['ip']})")
+    return make_success({"printer_id": printer["id"]})
 
 
 @api_bp.route('/printer/<printer_id>/files')
 @login_required
-def get_printer_files(printer_id):
-    """Get files from a printer."""
+def api_get_printer_files(printer_id):
     if printer_id not in printers:
-        return jsonify({"error": "Printer not found"}), 404
-    
+        return make_error("NOT_FOUND", "Printer not found", 404)
+
     path = request.args.get('path', '/local')
-    
-    # Request files from printer
     get_printer_files(printer_id, path)
-    
-    # Return files if available
     files = printers[printer_id].get("files", {}).get(path, [])
-    return jsonify(files)
+    return make_success(files)
 
 
 @api_bp.route('/printer/<printer_id>/print', methods=['POST'])
 @login_required
-def print_file(printer_id):
-    """Start or queue a print job."""
+def api_print_file(printer_id):
     if printer_id not in printers:
-        return jsonify({"error": "Printer not found"}), 404
-    
-    data = request.json
-    
-    if not data or 'filename' not in data:
-        return jsonify({"error": "Filename is required"}), 400
-    
-    filename = data['filename']
-    use_queue = data.get('queue', False)
-    
-    # Start or queue print
-    if use_queue:
-        queue_print(printer_id, filename)
-        return jsonify({
-            "success": True, 
-            "message": f"File queued: {filename}"
-        })
+        return make_error("NOT_FOUND", "Printer not found", 404)
+
+    try:
+        payload = PrintRequestSchema().load(request.get_json(force=True))
+    except ValidationError as err:
+        return make_error("INVALID_INPUT", err.messages, 400)
+
+    if payload["queue"]:
+        queue_print(printer_id, payload["filename"])
+        return make_success({"message": "File queued"})
     else:
-        result = start_print(printer_id, filename)
-        if result:
-            return jsonify({
-                "success": True, 
-                "message": f"Print started: {filename}"
-            })
-        else:
-            return jsonify({
-                "error": "Failed to start print"
-            }), 500
+        ok = start_print(printer_id, payload["filename"])
+        if not ok:
+            return make_error("PRINT_FAILED", "Failed to start print", 500)
+        return make_success({"message": "Print started"})
 
 
 @api_bp.route('/printer/<printer_id>/pause', methods=['POST'])
 @login_required
-def pause_print_job(printer_id):
-    """Pause a print job."""
+def api_pause_print(printer_id):
     if printer_id not in printers:
-        return jsonify({"error": "Printer not found"}), 404
-    
-    result = pause_print(printer_id)
-    
-    if result:
-        return jsonify({
-            "success": True, 
-            "message": "Print paused"
-        })
-    else:
-        return jsonify({
-            "error": "Failed to pause print"
-        }), 500
+        return make_error("NOT_FOUND", "Printer not found", 404)
+    if not pause_print(printer_id):
+        return make_error("PAUSE_FAILED", "Failed to pause print", 500)
+    return make_success()
 
 
 @api_bp.route('/printer/<printer_id>/resume', methods=['POST'])
 @login_required
-def resume_print_job(printer_id):
-    """Resume a paused print job."""
+def api_resume_print(printer_id):
     if printer_id not in printers:
-        return jsonify({"error": "Printer not found"}), 404
-    
-    result = resume_print(printer_id)
-    
-    if result:
-        return jsonify({
-            "success": True, 
-            "message": "Print resumed"
-        })
-    else:
-        return jsonify({
-            "error": "Failed to resume print"
-        }), 500
+        return make_error("NOT_FOUND", "Printer not found", 404)
+    if not resume_print(printer_id):
+        return make_error("RESUME_FAILED", "Failed to resume print", 500)
+    return make_success()
 
 
 @api_bp.route('/printer/<printer_id>/stop', methods=['POST'])
 @login_required
-def stop_print_job(printer_id):
-    """Stop a print job."""
+def api_stop_print(printer_id):
     if printer_id not in printers:
-        return jsonify({"error": "Printer not found"}), 404
-    
-    result = stop_print(printer_id)
-    
-    if result:
-        return jsonify({
-            "success": True, 
-            "message": "Print stopped"
-        })
-    else:
-        return jsonify({
-            "error": "Failed to stop print"
-        }), 500
+        return make_error("NOT_FOUND", "Printer not found", 404)
+    if not stop_print(printer_id):
+        return make_error("STOP_FAILED", "Failed to stop print", 500)
+    return make_success()
 
 
 @api_bp.route('/printer/<printer_id>/camera', methods=['POST'])
 @login_required
-def set_printer_camera(printer_id):
-    """Control printer camera."""
+def api_set_camera(printer_id):
     if printer_id not in printers:
-        return jsonify({"error": "Printer not found"}), 404
-    
-    data = request.json
-    
-    if not data or 'enable' not in data:
-        return jsonify({"error": "Enable parameter is required"}), 400
-    
-    enable = data['enable']
-    
-    result = set_camera_status(printer_id, enable)
-    
-    if result:
-        return jsonify({
-            "success": True, 
-            "message": f"Camera {'enabled' if enable else 'disabled'}"
-        })
-    else:
-        return jsonify({
-            "error": "Failed to update camera status"
-        }), 500
+        return make_error("NOT_FOUND", "Printer not found", 404)
+    try:
+        payload = DiagnoseSchema().load(request.get_json(force=True))
+    except ValidationError as err:
+        return make_error("INVALID_INPUT", err.messages, 400)
+
+    ok = set_camera_status(printer_id, payload["ip"])
+    if not ok:
+        return make_error("CAMERA_FAILED", "Failed to update camera", 500)
+    return make_success()
 
 
 @api_bp.route('/printer/<printer_id>/delete', methods=['POST'])
 @login_required
-def delete_printer_file(printer_id):
-    """Delete a file from printer."""
+def api_delete_file(printer_id):
     if printer_id not in printers:
-        return jsonify({"error": "Printer not found"}), 404
-    
-    data = request.json
-    
-    if not data or 'filename' not in data:
-        return jsonify({"error": "Filename is required"}), 400
-    
-    filename = data['filename']
-    
-    result = delete_file(printer_id, filename)
-    
-    if result:
-        return jsonify({
-            "success": True, 
-            "message": f"File deleted: {filename}"
-        })
-    else:
-        return jsonify({
-            "error": "Failed to delete file"
-        }), 500
+        return make_error("NOT_FOUND", "Printer not found", 404)
+    filename = request.json.get("filename")
+    if not filename:
+        return make_error("INVALID_INPUT", "Filename is required", 400)
+
+    if not delete_file(printer_id, filename):
+        return make_error("DELETE_FAILED", "Failed to delete file", 500)
+    return make_success()
 
 
 @api_bp.route('/printer/<printer_id>/rename', methods=['POST'])
 @login_required
-def rename_printer_name(printer_id):
-    """Rename a printer."""
+def api_rename_printer(printer_id):
     if printer_id not in printers:
-        return jsonify({"error": "Printer not found"}), 404
-    
-    data = request.json
-    
-    if not data or 'name' not in data:
-        return jsonify({"error": "Name is required"}), 400
-    
-    new_name = data['name']
-    
-    result = rename_printer(printer_id, new_name)
-    
-    if result:
-        return jsonify({
-            "success": True, 
-            "message": f"Printer renamed to: {new_name}"
-        })
-    else:
-        return jsonify({
-            "error": "Failed to rename printer"
-        }), 500
+        return make_error("NOT_FOUND", "Printer not found", 404)
+    new_name = request.json.get("name")
+    if not new_name:
+        return make_error("INVALID_INPUT", "Name is required", 400)
+
+    if not rename_printer(printer_id, new_name):
+        return make_error("RENAME_FAILED", "Failed to rename printer", 500)
+    return make_success()
 
 
 @api_bp.route('/printer/diagnostics', methods=['POST'])
 @login_required
-def run_printer_diagnostics():
-    """Run connection diagnostics on a printer IP."""
-    data = request.json
-    
-    if not data or 'ip' not in data:
-        return jsonify({
-            "success": False, 
-            "error": "IP address is required"
-        }), 400
-    
-    ip = data.get('ip')
-    
-    if not validate_ip(ip):
-        return jsonify({
-            "success": False, 
-            "error": "Invalid IP address format"
-        }), 400
-    
-    results = debug_printer_connection(ip)
-    
-    return jsonify({
-        "success": True,
-        "results": results
-    })
+def api_diagnostics():
+    try:
+        payload = DiagnoseSchema().load(request.get_json(force=True))
+    except ValidationError as err:
+        return make_error("INVALID_INPUT", err.messages, 400)
 
+    results = debug_printer_connection(payload["ip"])
+    return make_success(results)
 
-# ───────────────────────────────────────── Camera Access ──
 
 @api_bp.route("/camera/<printer_id>/frame")
 @login_required
-def get_camera_frame(printer_id):
-    """Get a single camera frame from a printer."""
-    printer = printers.get(printer_id)
-    if not printer or "camera_config" not in printer:
-        return abort(404)
-    
-    url = printer["camera_config"]["snapshot"].format(ip=printer["ip"])
-    
-    try:
-        r = requests.get(url, stream=True, timeout=3)
-        return Response(r.iter_content(4096), mimetype="image/jpeg")
-    except Exception as e:
-        logger.error(f"Camera frame error: {e}")
-        return jsonify({"error": "Failed to get camera frame"}), 500
+def api_camera_frame(printer_id):
+    p = printers.get(printer_id)
+    if not p or "camera_config" not in p:
+        abort(404)
+    url = p["camera_config"]["snapshot"].format(ip=p["ip"])
+    r = requests.get(url, stream=True, timeout=5)
+    return Response(r.iter_content(4096), mimetype="image/jpeg")
 
 
 @api_bp.route("/camera/<printer_id>/stream")
 @login_required
-def stream_camera(printer_id):
-    """Stream camera feed from a printer."""
-    printer = printers.get(printer_id)
-    if not printer or "camera_config" not in printer:
-        return abort(404)
-    
-    url = printer["camera_config"]["mjpeg"].format(ip=printer["ip"])
+def api_camera_stream(printer_id):
+    p = printers.get(printer_id)
+    if not p or "camera_config" not in p:
+        abort(404)
+    url = p["camera_config"]["mjpeg"].format(ip=p["ip"])
 
-    def generate_stream():
-        try:
-            with requests.get(url, stream=True, timeout=3) as r:
-                for chunk in r.iter_content(1024):
-                    yield chunk
-        except Exception as e:
-            logger.error(f"Camera stream error: {e}")
-            yield b""
+    def gen():
+        with requests.get(url, stream=True, timeout=5) as r:
+            for chunk in r.iter_content(1024):
+                yield chunk
+    return Response(gen(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
-    return Response(
-        generate_stream(), 
-        mimetype="multipart/x-mixed-replace; boundary=frame"
-    )
-
-
-# ───────────────────────────────────────── Uploads ──
 
 @api_bp.route("/uploads")
 @login_required
-def list_uploads():
-    """Get all upload tasks."""
-    return jsonify(upload_progress)
+def api_list_uploads():
+    return make_success(upload_progress)
 
-
-# ───────────────────────────────────────── Jobs ──
 
 @api_bp.route("/jobs", methods=["POST"])
 @login_required
-def create_job():
-    """Schedule a print job."""
-    data = request.get_json(force=True)
-    
-    # Validate required fields
-    required_fields = ["printer_id", "filename", "datetime"]
-    missing_fields = [f for f in required_fields if f not in data]
-    
-    if missing_fields:
-        return jsonify({
-            "success": False,
-            "error": f"Missing required fields: {', '.join(missing_fields)}"
-        }), 400
-    
+def api_create_job():
+    try:
+        payload = JobCreateSchema().load(request.get_json(force=True))
+    except ValidationError as err:
+        return make_error("INVALID_INPUT", err.messages, 400)
+
     try:
         job = PrintJob(
             id=str(uuid.uuid4()),
-            printer_id=data["printer_id"],
+            printer_id=payload["printer_id"],
             user_id=current_user.id,
-            filename=data["filename"],
+            filename=payload["filename"],
             status=JobStatus.QUEUED,
-            scheduled=datetime.fromisoformat(data["datetime"]),
+            scheduled=payload["datetime"],
         )
-        
         db.session.add(job)
         db.session.commit()
 
-        # Schedule the job
         sched.add_job(
             func=start_print,
             trigger="date",
@@ -947,99 +704,77 @@ def create_job():
             args=[job.printer_id, job.filename],
             id=str(job.id),
         )
-        
-        return jsonify({
-            "success": True,
-            "id": job.id
-        })
+        return make_success({"job_id": job.id})
     except Exception as e:
-        logger.error(f"Failed to create job: {e}")
-        return jsonify({
-            "success": False,
-            "error": f"Failed to create job: {str(e)}"
-        }), 500
+        logger.error(f"Job creation failed: {e}")
+        return make_error("JOB_FAILED", str(e), 500)
 
 
 @api_bp.route("/jobs")
 @login_required
-def list_jobs():
-    """Get scheduled print jobs."""
-    show_history = request.args.get("history", "false").lower() == "true"
-    
-    query = PrintJob.query
-    if not show_history:
-        query = query.filter(PrintJob.status == JobStatus.QUEUED)
-    
-    jobs = query.order_by(PrintJob.scheduled.desc()).all()
-    return jsonify([job.to_dict() for job in jobs])
+def api_list_jobs():
+    history = request.args.get("history", "false").lower() == "true"
+    q = PrintJob.query
+    if not history:
+        q = q.filter(PrintJob.status == JobStatus.QUEUED)
+    jobs = q.order_by(PrintJob.scheduled.desc()).all()
+    return make_success([j.to_dict() for j in jobs])
 
-
-# ───────────────────────────────────────── Health ──
-
-_start_time = time.time()
-
-@api_bp.route("/health")
-def health_check():
-    """Check API health and uptime."""
-    return jsonify({
-        "status": "ok",
-        "uptime": round(time.time() - _start_time),
-        "printers": len(printers),
-    })
-
-@api_bp.route('/printer/<printer_id>/camera/status')
-@login_required
-def get_camera_status(printer_id):
-    """Get the status of the printer camera."""
-    if printer_id not in printers:
-        return jsonify({"success": False, "error": "Printer not found"}), 404
-    
-    printer = printers[printer_id]
-    
-    # Check if the printer supports camera
-    if not printer.get("supports_camera", False):
-        return jsonify({"success": False, "error": "Printer does not support camera"}), 400
-    
-    # Return camera status from printer data
-    camera_enabled = printer.get("camera_status", False)
-    
-    return jsonify({
-        "success": True,
-        "enabled": camera_enabled
-    })
 
 @api_bp.route('/printer/<printer_id>/remove', methods=['POST'])
 @login_required
-def remove_printer_endpoint(printer_id):
-    """Remove a printer from the system."""
+def api_remove_printer(printer_id):
     if printer_id not in printers:
-        return jsonify({"success": False, "error": "Printer not found"}), 404
-    
-    # Get printer name before removal for response
-    printer_name = printers[printer_id].get('name', 'Unknown printer')
-    
-    # Use the printer_manager function
-    from app.printer_manager import remove_printer
-    result = remove_printer(printer_id)
-    
-    if result:
-        # Try database cleanup if needed
-        try:
-            from app.models import Printer, db
-            db_printer = Printer.query.filter_by(id=printer_id).first()
-            if db_printer:
-                db.session.delete(db_printer)
-                db.session.commit()
-                logger.info(f"Removed printer {printer_id} from database")
-        except Exception as db_err:
-            logger.warning(f"Database removal failed for printer {printer_id}: {db_err}")
-        
-        return jsonify({
-            "success": True, 
-            "message": f"Printer '{printer_name}' removed successfully"
-        })
-    else:
-        return jsonify({
-            "success": False, 
-            "error": f"Failed to remove printer"
-        }), 500
+        return make_error("NOT_FOUND", "Printer not found", 404)
+    name = printers[printer_id].get("name", printer_id)
+    if not remove_printer(printer_id):
+        return make_error("REMOVE_FAILED", "Failed to remove printer", 500)
+
+    # Clean up in DB as well
+    try:
+        from app.models import Printer as DBPrinter
+        dbp = DBPrinter.query.get(printer_id)
+        if dbp:
+            db.session.delete(dbp)
+            db.session.commit()
+    except Exception as db_e:
+        logger.warning(f"DB cleanup failed: {db_e}")
+
+    return make_success({"message": f"Printer '{name}' removed"})
+
+
+@api_bp.route('/logs')
+@login_required
+def api_get_logs():
+    """
+    Return the last N lines of the application log.
+    Configuration key: LOG_FILE (must be set in app.config).
+    """
+    log_path = current_app.config.get('LOG_FILE', 'logs/chitui.log')
+    try:
+        lines = get_last_log_lines(log_path, num_lines=500)
+    except FileNotFoundError as e:
+        return make_error('NOT_FOUND', str(e), 404)
+
+    return make_success({'lines': lines})
+
+
+@api_bp.route("/health")
+def api_health():
+    start = current_app.config.get('_start_time', time.time())
+    uptime = round(time.time() - start)
+    return make_success({
+        "uptime": uptime,
+        "printers": len(printers),
+    })
+
+
+@api_bp.route('/printer/<printer_id>/camera/status')
+@login_required
+def api_camera_status(printer_id):
+    p = printers.get(printer_id)
+    if not p:
+        return make_error('NOT_FOUND', "Printer not found", 404)
+    if 'camera_config' not in p:
+        return make_error('BAD_REQUEST', "Printer has no camera", 400)
+    return make_success({'enabled': p.get('camera_config', {}).get('enabled', False)})
