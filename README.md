@@ -1,67 +1,134 @@
 # ChitUI
 
-A modern web UI for Chitubox SDCP 3.0 resin printers.
+A modern web UI for managing Chitubox SDCP 3.0-compatible resin 3D printers.
 
-## Features
+<img src="https://github.com/yourusername/chitui/raw/main/static/img/chitui-dashboard.png" alt="ChitUI Dashboard" width="800"/>
 
-- 🖨️ **Printer Discovery**: Automatically find SDCP-compatible printers on your network
-- 🔄 **Realtime Status**: Monitor printer status in real-time
-- 📁 **File Management**: Upload and manage print files
-- 📺 **Camera Support**: View livestream from printers with camera support (like Elegoo Saturn 4 Ultra)
-- 🔒 **Authentication**: User login system with admin controls
-- 🎛️ **Print Controls**: Start, pause, and stop prints remotely
-- 💾 **Database Storage**: Store printer configurations, user accounts, and print history
-- 🌓 **Dark/Light Mode**: Modern UI with theme support
+## ✨ Features
 
-## Installation
+- **🔍 Smart Discovery** - Automatically detect SDCP-compatible printers on your local network
+- **📊 Real-time Monitoring** - Track print progress, status, and parameters with live updates
+- **📁 File Management** - Upload, organize and manage print files directly from the web interface
+- **📷 Camera Integration** - Live stream from printers with built-in cameras (like Elegoo Saturn 4 Ultra)
+- **🖱️ Remote Control** - Start, pause, resume and stop prints from anywhere on your network
+- **👥 Multi-user Support** - Role-based authentication with admin and user privileges
+- **🌓 Dark/Light Themes** - Modern, responsive UI with automatic and manual theme switching
+- **📱 Mobile Friendly** - Control your printers from any device with a web browser
+- **📦 Docker Ready** - Easy deployment using Docker with host network support
+
+## 🖼️ Screenshots
+
+<table>
+  <tr>
+    <td><img src="https://github.com/yourusername/chitui/raw/main/static/img/screenshot-printers.png" alt="Printer List" /></td>
+    <td><img src="https://github.com/yourusername/chitui/raw/main/static/img/screenshot-files.png" alt="File Management" /></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/yourusername/chitui/raw/main/static/img/screenshot-camera.png" alt="Camera View" /></td>
+    <td><img src="https://github.com/yourusername/chitui/raw/main/static/img/screenshot-print.png" alt="Print Status" /></td>
+  </tr>
+</table>
+
+## 🚀 Installation
 
 ### Prerequisites
 
 - Python 3.10 or newer
-- Network access to your 3D printers
+- Network access to your SDCP-compatible 3D printers
+- For camera functionality: working cameras on your printers
 
-### Setup
+### Method 1: Standard Installation
 
-1. Clone the repository:
+1. **Clone the repository**:
    ```bash
    git clone https://github.com/yourusername/chitui.git
    cd chitui
    ```
 
-2. Create a virtual environment:
+2. **Create and activate a virtual environment**:
    ```bash
    python -m venv .venv
+   
+   # On Windows:
+   .venv\Scripts\activate
+   
+   # On Linux/Mac:
+   source .venv/bin/activate
    ```
 
-3. Activate the virtual environment:
-   - Windows: `.venv\Scripts\activate`
-   - Linux/Mac: `source .venv/bin/activate`
-
-4. Install dependencies:
+3. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-5. Initialize the database:
+4. **Initialize the database**:
    ```bash
    python main.py init-db
    ```
 
-6. (Optional) Edit the configuration file:
+5. **Configure settings** (optional):
    ```bash
-   cp config/config.yaml.example config/config.yaml
+   cp config/default.yaml config/config.yaml
    # Edit config.yaml with your preferred settings
    ```
 
-## Usage
+6. **Launch the application**:
+   ```bash
+   python main.py
+   ```
 
-### Starting the Server
+   By default, ChitUI will be available at `http://localhost:54780` with the default login credentials (admin/admin).
+
+### Method 2: Docker Installation
+
+#### Using Docker Run:
 
 ```bash
-python main.py
+docker build -t chitui:latest .
+docker run --rm --name chitui --net=host \
+  -v ./config:/app/config \
+  -v ./uploads:/app/uploads \
+  -v ./logs:/app/logs \
+  -v ./data:/app/data \
+  -e ADMIN_PASSWORD=yourpassword \
+  chitui:latest
 ```
 
-By default, ChitUI will be available at `http://localhost:54780` with the default login credentials (admin/admin).
+#### Using Docker Compose:
+
+1. **Create docker-compose.yml**:
+   ```yaml
+   version: '3.8'
+   
+   services:
+     chitui:
+       build: .
+       image: chitui:latest
+       container_name: chitui
+       network_mode: host
+       volumes:
+         - ./config:/app/config
+         - ./uploads:/app/uploads
+         - ./logs:/app/logs
+         - ./data:/app/data
+       environment:
+         - PORT=54780
+         - HOST=0.0.0.0
+         - DEBUG=false
+         - LOG_LEVEL=INFO
+         - ADMIN_USER=admin
+         - ADMIN_PASSWORD=yourpassword
+       restart: unless-stopped
+   ```
+
+2. **Launch with docker-compose**:
+   ```bash
+   docker-compose up -d
+   ```
+
+> **⚠️ Important Note:** ChitUI requires host networking for printer discovery to work properly. This is because it needs to broadcast UDP packets on your local network to find printers.
+
+## 📋 Usage
 
 ### Command Line Options
 
@@ -69,13 +136,13 @@ By default, ChitUI will be available at `http://localhost:54780` with the defaul
 ChitUI - Web UI for Chitubox SDCP 3.0 resin printers
 
 Options:
-  -c, --config PATH    Path to configuration file
-  -h, --host TEXT      Host to bind the server to
-  -p, --port INTEGER   Port to bind the server to
-  -d, --debug          Enable debug mode
-  -l, --log-level TEXT Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-  --db, --database TEXT Database URI (e.g., sqlite:///chitui.db)
-  --help               Show this message and exit.
+  -c, --config PATH      Path to configuration file
+  -h, --host TEXT        Host to bind the server to
+  -p, --port INTEGER     Port to bind the server to
+  -d, --debug            Enable debug mode
+  -l, --log-level TEXT   Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  --db, --database TEXT  Database URI (e.g., sqlite:///chitui.db)
+  --help                 Show this message and exit.
 
 Commands:
   backup-db  Backup the database to a file
@@ -83,7 +150,9 @@ Commands:
   run        Run the ChitUI web server (default)
 ```
 
-### Database Configuration
+### Database Management
+
+#### Database Configuration
 
 ChitUI supports multiple database backends:
 
@@ -102,82 +171,143 @@ ChitUI supports multiple database backends:
    database_uri: "postgresql+psycopg2://username:password@localhost/chitui"
    ```
 
-### Backing Up the Database
+#### Database Backup
 
+Create a database backup:
 ```bash
 python main.py backup-db
 ```
 
-This will create a backup in the "backups" directory. You can specify a different backup location:
-
+Specify a custom backup location:
 ```bash
 python main.py backup-db --backup-dir /path/to/backups
 ```
 
-## Docker
+## ⚙️ Configuration
 
-ChitUI needs to broadcast UDP messages on your network segment to discover printers. Running ChitUI in Docker requires host networking to be enabled for the container:
+### Configuration File
 
-```bash
-docker build -t chitui:latest .
-docker run --rm --name chitui --net=host chitui:latest
-```
-
-### Docker Compose
+ChitUI can be configured using a YAML configuration file at `config/config.yaml`:
 
 ```yaml
-version: '3.8'
+# Network settings
+host: "0.0.0.0"
+port: 54780
 
-services:
-  chitui:
-    build: .
-    image: chitui:latest
-    container_name: chitui
-    network_mode: host
-    volumes:
-      - ./config:/app/config
-      - ./uploads:/app/uploads
-      - ./logs:/app/logs
-      - ./backups:/app/backups
-      - ./data:/app/data
-    environment:
-      - PORT=54780
-      - HOST=0.0.0.0
-      - DEBUG=false
-      - LOG_LEVEL=INFO
-      - ADMIN_USER=admin
-      - ADMIN_PASSWORD=admin
-    restart: unless-stopped
+# Application settings
+debug: false
+log_level: "INFO"
+upload_folder: "uploads"
+log_folder: "logs"
+
+# Database settings
+database_uri: "sqlite:///chitui.db"
+
+# User settings
+admin_user: "admin"
+admin_password: "admin"
 ```
 
-## Environment Variables
+### Environment Variables
 
-ChitUI can be configured using environment variables:
+You can also configure ChitUI using environment variables:
 
-- `HOST`: Host address to bind to (default: "0.0.0.0")
-- `PORT`: Port to listen on (default: 54780)
-- `DEBUG`: Enable debug mode (default: false)
-- `LOG_LEVEL`: Logging level (default: "INFO")
-- `UPLOAD_FOLDER`: Directory for temporary file uploads (default: "uploads")
-- `LOG_FOLDER`: Directory for log files (default: "logs")
-- `ADMIN_USER`: Default admin username (default: "admin")
-- `ADMIN_PASSWORD`: Default admin password (default: "admin")
-- `DATABASE_URI`: Database connection URI (default: "sqlite:///chitui.db")
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `HOST` | Host address to bind to | "0.0.0.0" |
+| `PORT` | Port to listen on | 54780 |
+| `DEBUG` | Enable debug mode | false |
+| `LOG_LEVEL` | Logging level | "INFO" |
+| `UPLOAD_FOLDER` | Directory for temporary file uploads | "uploads" |
+| `LOG_FOLDER` | Directory for log files | "logs" |
+| `ADMIN_USER` | Default admin username | "admin" |
+| `ADMIN_PASSWORD` | Default admin password | "admin" |
+| `DATABASE_URI` | Database connection URI | "sqlite:///chitui.db" |
 
-## Supported Printers
+## 🖨️ Supported Printers
 
-ChitUI works with Chitubox SDCP 3.0 protocol printers, including:
+ChitUI is compatible with printers that support the Chitubox SDCP 3.0 protocol, including:
 
-- Elegoo Saturn series (Saturn, Saturn 2, Saturn 3, Saturn 4, Saturn 4 Ultra)
-- Elegoo Mars series (Mars 3, Mars 3 Ultra, Mars 4, Mars 4 Ultra)
-- Other printers using the SDCP 3.0 protocol
+### Elegoo Saturn Series
+- Saturn Ultra 16K
+- Saturn 4 Ultra
+- Saturn 4
+- Saturn 3 Ultra
+- Saturn 3
+- Saturn 2
+- Saturn
 
-Camera streaming is supported on models with built-in cameras, like the Elegoo Saturn 4 Ultra.
+### Elegoo Mars Series
+- Mars 4 Ultra
+- Mars 4
+- Mars 3 Ultra
+- Mars 3
+- Mars 2
 
-## Contributing
+### Other Manufacturers
+- Any printer that supports the SDCP 3.0 protocol
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+> **📷 Camera Support**: Live camera streaming is available on models with built-in cameras, such as the Saturn 4 Ultra, Saturn Ultra 16K, and others.
 
-## License
+## 🔍 Troubleshooting
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Common Issues
+
+1. **Cannot discover printers**:
+   - Make sure your printers are on the same network as ChitUI
+   - Check if UDP port 3000 is not blocked by your firewall
+   - Try adding printers manually using their IP addresses
+
+2. **Camera streaming not working**:
+   - Verify that your printer model has a built-in camera
+   - Ensure the printer firmware is up to date
+   - Check if the camera is enabled in the printer settings
+
+3. **File uploads failing**:
+   - Check the ChitUI logs for detailed error information
+   - Ensure the file type is supported (.ctb, .goo, .prz)
+   - Verify that the uploads directory is writable
+
+### Getting Help
+
+- Check the logs in the `logs` directory for more detailed error information
+- File an issue on the GitHub repository if you encounter a bug
+- Join our Discord server for community support
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Commit your changes**: `git commit -m 'Add some amazing feature'`
+4. **Push to the branch**: `git push origin feature/amazing-feature`
+5. **Open a Pull Request**
+
+### Development Setup
+
+1. Clone the repository and set up a virtual environment as described in the installation section
+2. Install development dependencies:
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
+3. Run tests:
+   ```bash
+   pytest
+   ```
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 📧 Contact
+
+- GitHub Issues: [https://github.com/yourusername/chitui/issues](https://github.com/yourusername/chitui/issues)
+- Email: your.email@example.com
+- Discord: [Join our server](https://discord.gg/yourlink)
+
+---
+
+<p align="center">
+Made with ❤️ for the 3D printing community
+</p>

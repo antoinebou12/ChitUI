@@ -174,11 +174,41 @@ def register_handlers(socketio):
             return
         
         if not name:
-            logger.warning(f"Client requested rename action with no name")
+            logger.warning("Client requested rename action with no name")
             return
         
         logger.info(f"Client requested rename action: {printer_id}, new name: {name}")
         rename_printer(printer_id, name)
+
+    @socketio.on('remove_printer')
+    def handle_remove_printer(data):
+        """Handle printer removal request."""
+        printer_id = data.get('id')
+        
+        if not printer_id or printer_id not in printers:
+            logger.warning(f"Client requested removal for unknown printer: {printer_id}")
+            emit('printer_removal_result', {
+                'success': False,
+                'error': 'Printer not found'
+            })
+            return
+        
+        logger.info(f"Client requested printer removal: {printer_id}")
+        from app.printer_manager import remove_printer
+        result = remove_printer(printer_id)
+        
+        # Send confirmation of action
+        if result:
+            emit('printer_removal_result', {
+                'success': True,
+                'printer_id': printer_id
+            })
+        else:
+            emit('printer_removal_result', {
+                'success': False,
+                'printer_id': printer_id,
+                'error': 'Failed to remove printer'
+            })
 
 
 def discovery_task():
@@ -332,3 +362,4 @@ def lan_scan_task(timeout, socketio):
             'complete': True,
             'success': False
         })
+

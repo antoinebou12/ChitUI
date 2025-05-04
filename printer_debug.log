@@ -60237,3 +60237,80 @@ AttributeError: 'User' object has no attribute 'is_admin'
 2025-05-03 21:37:40,003 | DEBUG    | Initializing WebSocket
 2025-05-03 21:37:40,003 | DEBUG    | Validating WebSocket request
 2025-05-03 21:37:40,005 | INFO     | 127.0.0.1 - - [2025-05-03 21:37:40] "GET /static/favicon.svg HTTP/1.1" 200 2669 0.002000
+2025-05-03 21:43:26,528 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:26,528 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:26,531 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:26] "GET / HTTP/1.1" 200 23232 0.002089
+2025-05-03 21:43:26,536 | DEBUG    | Closed WebSocket
+2025-05-03 21:43:26,537 | DEBUG    | Failed to write closing frame -> closing socket
+2025-05-03 21:43:26,537 | DEBUG    | Closed WebSocket
+2025-05-03 21:43:26,573 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:26,574 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:26,598 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:26] "GET /static/css/bootstrap.min.css HTTP/1.1" 200 233096 0.025106
+2025-05-03 21:43:26,602 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:26,603 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:26,605 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:26] "GET /static/css/bootstrap-icons.min.css HTTP/1.1" 200 86170 0.003006
+2025-05-03 21:43:26,606 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:26,606 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:26,607 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:26] "GET /static/css/chitui.css HTTP/1.1" 200 2589 0.001000
+2025-05-03 21:43:26,608 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:26,608 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:26,610 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:26] "GET /static/js/bootstrap.bundle.min.js HTTP/1.1" 200 81031 0.001505
+2025-05-03 21:43:26,611 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:26,611 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:26,613 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:26] "GET /static/js/socket.io.min.js HTTP/1.1" 200 50296 0.002007
+2025-05-03 21:43:26,614 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:26,614 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:26,615 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:26] "GET /static/js/theme-toggle.js HTTP/1.1" 200 3249 0.001000
+2025-05-03 21:43:26,616 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:26,616 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:26,618 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:26] "GET /static/js/chitui.js HTTP/1.1" 200 72338 0.001996
+2025-05-03 21:43:26,767 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:26,767 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:26,770 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:26] "GET /static/css/bootstrap.min.css.map HTTP/1.1" 200 590191 0.003515
+2025-05-03 21:43:27,185 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,185 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,187 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /static/css/fonts/bootstrap-icons.woff2?dd67030699838ea613ee6dbda90effa6 HTTP/1.1" 200 130694 0.002000
+2025-05-03 21:43:27,189 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,189 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,193 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /static/js/bootstrap.bundle.min.js.map HTTP/1.1" 200 332395 0.004284
+2025-05-03 21:43:27,194 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,194 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,195 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /static/js/socket.io.min.js.map HTTP/1.1" 404 331 0.000998
+2025-05-03 21:43:27,195 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,196 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,196 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /socket.io/?EIO=4&transport=polling&t=PQOzcRI HTTP/1.1" 200 276 0.001001
+2025-05-03 21:43:27,344 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,344 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,345 | DEBUG    | Can only upgrade connection if using GET method.
+2025-05-03 21:43:27,348 | DEBUG    | Failed to write closing frame -> closing socket
+2025-05-03 21:43:27,349 | DEBUG    | Closed WebSocket
+2025-05-03 21:43:27,351 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "POST /socket.io/?EIO=4&transport=polling&t=PQOzcTg&sid=KObJjzLI2BiFJj1fAAAC HTTP/1.1" 200 196 0.006494
+2025-05-03 21:43:27,353 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,353 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,353 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /socket.io/?EIO=4&transport=polling&t=PQOzcTh&sid=KObJjzLI2BiFJj1fAAAC HTTP/1.1" 200 207 0.000000
+2025-05-03 21:43:27,354 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,354 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,354 | DEBUG    | Attempting to upgrade connection
+2025-05-03 21:43:27,354 | DEBUG    | WebSocket request accepted, switching protocols
+2025-05-03 21:43:27,523 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,523 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,524 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /socket.io/?EIO=4&transport=polling&t=PQOzcWW&sid=KObJjzLI2BiFJj1fAAAC HTTP/1.1" 200 157 0.001001
+2025-05-03 21:43:27,524 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,524 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,525 | DEBUG    | Can only upgrade connection if using GET method.
+2025-05-03 21:43:27,525 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "POST /socket.io/?EIO=4&transport=polling&t=PQOzcWX&sid=KObJjzLI2BiFJj1fAAAC HTTP/1.1" 200 196 0.001001
+2025-05-03 21:43:27,622 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,622 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,624 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /socket.io/?EIO=4&transport=polling&t=PQOzcX9&sid=KObJjzLI2BiFJj1fAAAC HTTP/1.1" 200 157 0.001609
+2025-05-03 21:43:27,791 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,792 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,793 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /static/favicon.ico HTTP/1.1" 200 15359 0.002003
+2025-05-03 21:43:27,797 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,797 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,798 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /static/site.webmanifest HTTP/1.1" 200 733 0.001000
+2025-05-03 21:43:27,836 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,836 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,837 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /static/favicon.ico HTTP/1.1" 200 15359 0.001033
+2025-05-03 21:43:27,842 | DEBUG    | Initializing WebSocket
+2025-05-03 21:43:27,842 | DEBUG    | Validating WebSocket request
+2025-05-03 21:43:27,844 | INFO     | 127.0.0.1 - - [2025-05-03 21:43:27] "GET /static/favicon.svg HTTP/1.1" 200 2669 0.002003

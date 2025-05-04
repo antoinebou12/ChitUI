@@ -5,11 +5,13 @@ services:
     build: .
     image: chitui:latest
     container_name: chitui
-    network_mode: host  # Required for UDP broadcast discovery
+    network_mode: host 
     volumes:
       - ./config:/app/config
       - ./logs:/app/logs
       - ./uploads:/app/uploads
+      - ./backups:/app/backups
+      - ./data:/app/data
     environment:
       - PORT=54780
       - HOST=0.0.0.0
@@ -17,4 +19,5 @@ services:
       - LOG_LEVEL=INFO
       - ADMIN_USER=admin
       - ADMIN_PASSWORD=admin
+      - DISCOVERY_TIMEOUT=3
     restart: unless-stopped

@@ -665,3 +665,9 @@
 2025-05-03 21:37:39 | INFO     | app.printer_manager:discover_printers:94 - Starting enhanced printer discovery
 2025-05-03 21:37:41 | INFO     | app.printer_manager:discover_printers:158 - Discovery completed: 0 printers found
 2025-05-03 21:37:41 | INFO     | app.printer_manager:connect_printers:1055 - Connected to 0/0 printers
+2025-05-03 21:43:26 | INFO     | app.socket_handlers:handle_disconnect:39 - Client disconnected: admin
+2025-05-03 21:43:27 | INFO     | app.socket_handlers:handle_connect:27 - Client connected: admin
+2025-05-03 21:43:27 | INFO     | app.socket_handlers:handle_printers_request:44 - Client requested printer discovery: admin
+2025-05-03 21:43:27 | INFO     | app.printer_manager:discover_printers:94 - Starting enhanced printer discovery
+2025-05-03 21:43:27 | INFO     | app.printer_manager:scan_interface:204 - Discovered printer 5346909419520100 at 192.168.0.97 via {7D98AE58-AC3D-461A-9ECC-41A01942A372}
+2025-05-03 21:43:27 | INFO     | app.printer_manager:save_discovered_printer:318 - Discovered: Antoine (192.168.0.97)

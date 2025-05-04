@@ -383,9 +383,6 @@ def add_printer_manually(name: str, ip: str, model: str = "unknown", brand: str 
     Thread(target=lambda: connect_printer(pid), daemon=True).start()
     return printer
 
-def remove_printer_manul
-
-
 # ============================================================================
 # Connection & WebSocket handlers
 # ----------------------------------------------------------------------------
@@ -1056,3 +1053,48 @@ def connect_printers():
     
     logger.info(f"Connected to {connected}/{len(printers)} printers")
     return connected
+
+def remove_printer(printer_id: str) -> bool:
+    """
+    Remove a printer from the system.
+    
+    Args:
+        printer_id (str): Printer ID to remove
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Check if printer exists
+        if printer_id not in printers:
+            logger.warning(f"Attempt to remove non-existent printer: {printer_id}")
+            return False
+            
+        # Close any active WebSocket connection
+        if printer_id in websockets:
+            try:
+                websockets[printer_id].close()
+            except Exception as ws_err:
+                logger.warning(f"Error closing WebSocket for printer {printer_id}: {ws_err}")
+            del websockets[printer_id]
+        
+        # Remove from any job queues
+        if printer_id in job_queues:
+            del job_queues[printer_id]
+        
+        # Get printer info for logging
+        printer_name = printers[printer_id].get('name', 'Unknown printer')
+        
+        # Remove printer from in-memory registry
+        del printers[printer_id]
+        
+        logger.info(f"Printer {printer_name} (ID: {printer_id}) removed successfully")
+        
+        # Emit socket event
+        from app import socketio
+        socketio.emit('printer_removed', {'id': printer_id, 'name': printer_name})
+        
+        return True
+    except Exception as e:
+        logger.error(f"Error removing printer {printer_id}: {e}")
+        return False

@@ -32,7 +32,8 @@ from app.printer_manager import (
     set_camera_status,
     start_print,
     stop_print,
-    queue_print,  # Added from the refactored printer_manager
+    queue_print,
+    remove_printer
 )
 
 
@@ -1009,46 +1010,36 @@ def get_camera_status(printer_id):
 
 @api_bp.route('/printer/<printer_id>/remove', methods=['POST'])
 @login_required
-def remove_printer(printer_id):
+def remove_printer_endpoint(printer_id):
     """Remove a printer from the system."""
     if printer_id not in printers:
         return jsonify({"success": False, "error": "Printer not found"}), 404
     
-    try:
-        # Close any active WebSocket connection
-        if printer_id in websockets:
-            try:
-                websockets[printer_id].close()
-            except Exception as ws_err:
-                logger.warning(f"Error closing WebSocket for printer {printer_id}: {ws_err}")
-            del websockets[printer_id]
-        
-        # Remove from any job queues
-        if 'job_queues' in globals() and printer_id in job_queues:
-            del job_queues[printer_id]
-        
-        # Remove printer from in-memory registry
-        printer_name = printers[printer_id].get('name', 'Unknown printer')
-        del printers[printer_id]
-        
-        # Remove from database if using persistence
+    # Get printer name before removal for response
+    printer_name = printers[printer_id].get('name', 'Unknown printer')
+    
+    # Use the printer_manager function
+    from app.printer_manager import remove_printer
+    result = remove_printer(printer_id)
+    
+    if result:
+        # Try database cleanup if needed
         try:
             from app.models import Printer, db
             db_printer = Printer.query.filter_by(id=printer_id).first()
             if db_printer:
                 db.session.delete(db_printer)
                 db.session.commit()
+                logger.info(f"Removed printer {printer_id} from database")
         except Exception as db_err:
             logger.warning(f"Database removal failed for printer {printer_id}: {db_err}")
         
-        logger.info(f"Printer {printer_name} (ID: {printer_id}) removed successfully")
         return jsonify({
             "success": True, 
             "message": f"Printer '{printer_name}' removed successfully"
         })
-    except Exception as e:
-        logger.error(f"Error removing printer {printer_id}: {e}")
+    else:
         return jsonify({
             "success": False, 
-            "error": f"Failed to remove printer: {str(e)}"
+            "error": f"Failed to remove printer"
         }), 500
