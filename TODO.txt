@@ -1,3 +1,1 @@
-* manual adding of printers
 * camera frame/stream
-* print job control
