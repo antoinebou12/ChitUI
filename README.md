@@ -297,7 +297,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-- GitHub Issues: [https://github.com/yourusername/chitui/issues](https://github.com/yourusername/chitui/issues)
+- GitHub Issues: [https://github.com/antoinebou12/chitui/issues](https://github.com/yourusername/chitui/issues)
 - Email: your.email@example.com
 - Discord: [Join our server](https://discord.gg/yourlink)
 
