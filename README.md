@@ -16,18 +16,15 @@ A modern web UI for managing Chitubox SDCP 3.0-compatible resin 3D printers.
 - **📱 Mobile Friendly** - Control your printers from any device with a web browser
 - **📦 Docker Ready** - Easy deployment using Docker with host network support
 
-## 🖼️ Screenshots
 
-<table>
-  <tr>
-    <td><img src="https://github.com/yourusername/chitui/raw/main/static/img/screenshot-printers.png" alt="Printer List" /></td>
-    <td><img src="https://github.com/yourusername/chitui/raw/main/static/img/screenshot-files.png" alt="File Management" /></td>
-  </tr>
-  <tr>
-    <td><img src="https://github.com/yourusername/chitui/raw/main/static/img/screenshot-camera.png" alt="Camera View" /></td>
-    <td><img src="https://github.com/yourusername/chitui/raw/main/static/img/screenshot-print.png" alt="Print Status" /></td>
-  </tr>
-</table>
+
+## 🖼️ Screenshots
+![Printer List](https://github.com/user-attachments/assets/9077c509-8605-45e3-84ce-fd214f875b49)
+![File Management](https://github.com/user-attachments/assets/b7696317-efa1-403d-b411-40d320f0ad1e)
+![Print Status](https://github.com/user-attachments/assets/df432a33-8e3c-43f1-a9ee-82a39febde0a)
+![Info](https://github.com/user-attachments/assets/7a7aadc4-52c0-4999-9fcf-8d0e5031d221)
+![Admin](https://github.com/user-attachments/assets/a89df49b-ad1e-40b9-9527-9e2d91e7985b)
+
 
 ## 🚀 Installation
 
