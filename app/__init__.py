@@ -11,19 +11,23 @@ import os
 import uuid
 from werkzeug.security import generate_password_hash
 from datetime import datetime
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Initialize extensions
 socketio = SocketIO()
 login_manager = LoginManager()
 migrate = Migrate()
 
-# Import database models
-from app.models import db, User, Printer, PrintJob, SystemSetting
+# Create scheduler
+sched = BackgroundScheduler()
 
 # Global state for runtime data
 printers = {}
 websockets = {}
 upload_progress = {}
+
+# Import database models
+from app.models import db, User, PrintJob, SystemSetting
 
 
 def create_app(config=None):
@@ -87,6 +91,10 @@ def create_app(config=None):
         db.create_all()
         create_admin_user(config)
         load_system_settings(config)
+    
+    # Start the scheduler
+    if not sched.running:
+        sched.start()
     
     # Load user model
     @login_manager.user_loader
@@ -158,3 +166,21 @@ def load_system_settings(config):
     
     db.session.commit()
     logger.info("System settings loaded")
+
+
+# Import needed for the job runner
+from app.printer_manager import start_print
+
+def _run_queued_job(job_id):
+    """Run a queued print job."""
+    job = PrintJob.query.get(job_id)
+    if not job:
+        return
+
+    ok = start_print(job.printer_id, job.file_name)
+    if ok:
+        job.status = "RUNNING"
+        job.started_at = datetime.utcnow()
+    else:
+        job.status = "ERROR"
+    db.session.commit()

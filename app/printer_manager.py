@@ -1,23 +1,33 @@
 """
 Printer management module for ChitUI
 """
-import socket
-import json
-import time
-import os
+from __future__ import annotations
+
 import hashlib
+import json
+import os
+import platform
+import socket
+import subprocess
+import time
 import uuid
-import websocket
+from collections import defaultdict
+from threading import Lock, Thread
+from typing import Any, Dict, List, Optional
+
 import requests
-from threading import Thread, Lock
+import websocket
 from loguru import logger
 from tqdm import tqdm
-from app import printers, websockets, upload_progress
-from app.constants import MACHINE_STATUS, PRINTER_ICONS, CAMERA_ENABLED_MODELS
+import threading
 
+from app import printers, websockets, upload_progress
+from app.constants import CAMERA_ENABLED_MODELS, CMD, MACHINE_STATUS, PRINTER_ICONS
+
+# Configure logging
 import logging
 logging.basicConfig(
-    level=logging.DEBUG,  # Or logging.INFO for less verbose logging
+    level=logging.DEBUG,
     format='%(asctime)s | %(levelname)-8s | %(message)s',
     handlers=[
         logging.FileHandler('printer_debug.log'),
@@ -25,849 +35,740 @@ logging.basicConfig(
     ]
 )
 
-
-# Lock to prevent race conditions when accessing shared resources
+# ─────────────────────────── Globals ──
 printer_lock = Lock()
+job_queues: Dict[str, List[str]] = defaultdict(list)  # printer_id → queue of filenames
+
+WS_PORTS = (3030, 3031)  # Elegoo 14 K listens on 3031
+UDP_DISCOVERY_PORT = 3000
+UDP_LISTEN_PORT = 54781
+UDP_MSG = b"M99999"
+WS_TIMEOUT = 6
+CHUNK_SIZE = 1048576  # 1MB chunks for file uploads
+SOCKET_TIMEOUT = 2
+
+# ============================================================================
+# Low‑level helpers
+# ----------------------------------------------------------------------------
+
+def _ping(ip: str) -> bool:
+    """Return *True* if host responds to a single ICMP ping."""
+    param = "-n" if platform.system().lower() == "windows" else "-c"
+    return subprocess.run(["ping", param, "1", ip], capture_output=True).returncode == 0
 
 
-def discover_printers(timeout=1):
-    """
-    Discover 3D printers on the network using UDP broadcast.
-
-    Args:
-        timeout (int): Discovery timeout in seconds
-
-    Returns:
-        dict: Dictionary of discovered printers
-    """
-    logger.info("Starting printer discovery")
-
-    msg = b'M99999'
+def _ws_send(pid: str, cmd: int | str, data: dict | None = None) -> bool:
+    """Serialize and send an SDCP command over the cached WebSocket."""
+    if pid not in websockets:
+        logger.warning(f"No WS for {pid}")
+        return False
+    ws = websockets[pid]
+    cmd_code = CMD[cmd] if isinstance(cmd, str) else cmd
+    payload = {
+        "Id": printers[pid]["connection"],
+        "Data": {
+            "Cmd": cmd_code,
+            "Data": data or {},
+            "RequestID": os.urandom(8).hex(),
+            "MainboardID": pid,
+            "TimeStamp": int(time.time()),
+            "From": 0,
+        },
+        "Topic": f"sdcp/request/{pid}",
+    }
     try:
-        sock = socket.socket(
-            socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.settimeout(timeout)
-        sock.bind(('', 54781))
-        sock.sendto(msg, ("255.255.255.255", 3000))
+        ws.send(json.dumps(payload))
+        logger.debug(f"→ {cmd} to {pid}")
+        return True
+    except Exception as exc:
+        logger.error(f"Send {cmd} failed: {exc}")
+        return False
 
-        discovered = {}
 
+# ============================================================================
+# Discovery & manual‑add
+# ----------------------------------------------------------------------------
+
+def discover_printers(timeout=2):
+    """Broadcast UDP packet and collect printer beacons with improved network handling."""
+    logger.info("Starting enhanced printer discovery")
+    
+    discovered = {}
+    
+    try:
+        # Get all network interfaces
+        network_interfaces = []
+        
         try:
-            # Use tqdm for progress display during discovery
-            with tqdm(desc="Discovering printers", unit="printer") as pbar:
-                while True:
-                    try:
-                        data = sock.recv(8192)
-                        printer = process_discovery_response(data)
-                        if printer:
-                            discovered[printer['id']] = printer
-                            pbar.update(1)
-                    except socket.timeout:
-                        break
-        finally:
-            sock.close()
-
-        logger.info(f"Discovery completed: {len(discovered)} printers found")
-        return discovered
-
+            # Try using netifaces for better network interface detection
+            import netifaces
+            for iface in netifaces.interfaces():
+                addrs = netifaces.ifaddresses(iface)
+                if netifaces.AF_INET in addrs:
+                    for addr in addrs[netifaces.AF_INET]:
+                        if 'addr' in addr and 'broadcast' in addr:
+                            network_interfaces.append({
+                                'name': iface,
+                                'ip': addr['addr'],
+                                'broadcast': addr['broadcast']
+                            })
+                            logger.debug(f"Found interface: {iface} ({addr['addr']}) - broadcast: {addr['broadcast']}")
+        except ImportError:
+            # Fallback to common broadcast addresses
+            logger.info("Netifaces not available, using fallback addresses")
+            network_interfaces = [
+                {'name': 'default', 'ip': '0.0.0.0', 'broadcast': '255.255.255.255'},
+                {'name': 'subnet-0', 'ip': '0.0.0.0', 'broadcast': '192.168.0.255'},
+                {'name': 'subnet-1', 'ip': '0.0.0.0', 'broadcast': '192.168.1.255'}
+            ]
+        
+        # If no interfaces found, use default
+        if not network_interfaces:
+            network_interfaces = [
+                {'name': 'default', 'ip': '0.0.0.0', 'broadcast': '255.255.255.255'}
+            ]
+        
+        # Also perform a direct scan to the specific printer IP if provided as environment variable
+        specific_ip = os.environ.get('PRINTER_IP')
+        if specific_ip:
+            logger.info(f"Attempting direct discovery for IP: {specific_ip}")
+            direct_result = discover_printer_by_ip(specific_ip, timeout)
+            discovered.update(direct_result)
+        
+        # Scan all interfaces in parallel
+        threads = []
+        thread_lock = threading.Lock()
+        
+        for interface in network_interfaces:
+            thread = threading.Thread(
+                target=scan_interface,
+                args=(interface, timeout, discovered, thread_lock)
+            )
+            thread.daemon = True
+            threads.append(thread)
+            thread.start()
+            
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
+            
     except Exception as e:
-        logger.error(f"Error during printer discovery: {e}")
-        return {}
+        logger.error(f"Discovery failed: {e}")
+    
+    logger.info(f"Discovery completed: {len(discovered)} printers found")
+    return discovered
 
-
-def process_discovery_response(data):
-    """
-    Process discovery response data and extract printer information.
-
-    Args:
-        data (bytes): Raw response data
-
-    Returns:
-        dict: Printer information dictionary or None on error
-    """
+def scan_interface(interface, timeout, discovered, lock):
+    """Scan a specific network interface for printers."""
+    interface_name = interface['name']
+    source_ip = interface['ip']
+    broadcast = interface['broadcast']
+    
+    logger.debug(f"Scanning interface {interface_name} ({source_ip}) with broadcast {broadcast}")
+    
     try:
-        j = json.loads(data.decode('utf-8'))
-
-        # Extract printer information
-        printer = {
-            'id': j['Data']['MainboardID'],
-            'connection': j['Id'],
-            'name': j['Data']['Name'],
-            'model': j['Data']['MachineName'].lower(),
-            'brand': j['Data']['BrandName'].lower(),
-            'ip': j['Data']['MainboardIP'],
-            'protocol': j['Data']['ProtocolVersion'],
-            'firmware': j['Data']['FirmwareVersion'],
-            'status': 'disconnected',
-            'last_seen': time.time(),
-            'machine_status': None,
-            'print_status': None,
-            'files': [],
-            'print_progress': None,
-            'current_file': None,
-            'remain_time': None,
-            'supports_camera': False,
-        }
-
-        # Set printer icon
-        icon_key = f"{printer['brand']}_{printer['model']}".replace(" ", "")
-        printer['icon'] = PRINTER_ICONS.get(icon_key, PRINTER_ICONS['default'])
-
-        # Check if model supports camera
-        for model in CAMERA_ENABLED_MODELS:
-            if model in printer['model'].lower():
-                printer['supports_camera'] = True
-                printer['camera_config'] = CAMERA_ENABLED_MODELS[model]
-                break
-
-        logger.info(f"Discovered printer: {printer['name']} ({printer['ip']})")
-        return printer
-
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            sock.settimeout(timeout)
+            
+            # Try to bind to source IP
+            try:
+                if source_ip != '0.0.0.0':
+                    sock.bind((source_ip, 0))
+                else:
+                    sock.bind(('', 0))
+            except socket.error as e:
+                logger.warning(f"Could not bind to {source_ip}, using default: {e}")
+                sock.bind(('', 0))
+            
+            # Send discovery message
+            sock.sendto(UDP_MSG, (broadcast, UDP_DISCOVERY_PORT))
+            logger.debug(f"Sent discovery on {interface_name} to {broadcast}")
+            
+            # Collect responses until timeout
+            start_time = time.time()
+            while time.time() - start_time < timeout:
+                try:
+                    data, addr = sock.recvfrom(8192)
+                    try:
+                        j = json.loads(data.decode('utf-8'))
+                        
+                        # Try to extract printer ID using multiple possible formats
+                        printer_id = None
+                        if 'Data' in j and 'MainboardID' in j['Data']:
+                            printer_id = j['Data']['MainboardID']
+                        elif 'Data' in j and 'Attributes' in j['Data'] and 'MainboardID' in j['Data']['Attributes']:
+                            printer_id = j['Data']['Attributes']['MainboardID']
+                        
+                        if printer_id:
+                            logger.info(f"Discovered printer {printer_id} at {addr[0]} via {interface_name}")
+                            with lock:
+                                if printer_id not in discovered:
+                                    discovered[printer_id] = save_discovered_printer(data, addr)
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Invalid JSON from {addr[0]}: {e}")
+                    except Exception as e:
+                        logger.warning(f"Error processing printer response from {addr[0]}: {e}")
+                except socket.timeout:
+                    continue
     except Exception as e:
-        logger.error(f"Error processing discovery response: {e}")
+        logger.warning(f"Error scanning interface {interface_name}: {e}")
+
+def discover_printer_by_ip(ip, timeout=2):
+    """Discover a printer at a specific IP address."""
+    logger.info(f"Attempting direct discovery for printer at {ip}")
+    
+    discovered = {}
+    
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.settimeout(timeout)
+            
+            # Send discovery message directly to IP
+            sock.sendto(UDP_MSG, (ip, UDP_DISCOVERY_PORT))
+            
+            # Wait for response
+            try:
+                data, addr = sock.recvfrom(8192)
+                try:
+                    j = json.loads(data.decode('utf-8'))
+                    
+                    # Try to extract printer ID using multiple possible formats
+                    printer_id = None
+                    if 'Data' in j and 'MainboardID' in j['Data']:
+                        printer_id = j['Data']['MainboardID']
+                    elif 'Data' in j and 'Attributes' in j['Data'] and 'MainboardID' in j['Data']['Attributes']:
+                        printer_id = j['Data']['Attributes']['MainboardID']
+                    
+                    if printer_id:
+                        logger.info(f"Directly discovered printer {printer_id} at {addr[0]}")
+                        discovered[printer_id] = save_discovered_printer(data, addr)
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Invalid JSON from {addr[0]}: {e}")
+                except Exception as e:
+                    logger.warning(f"Error processing direct printer response from {addr[0]}: {e}")
+            except socket.timeout:
+                logger.warning(f"No response from {ip}")
+    except Exception as e:
+        logger.error(f"Error in direct discovery for {ip}: {e}")
+    
+    return discovered
+
+def save_discovered_printer(data, addr=None):
+    """Parse printer data with robust error handling."""
+    try:
+        if isinstance(data, bytes):
+            j = json.loads(data.decode('utf-8'))
+        else:
+            j = data
+        
+        # Handle different response formats
+        if 'Data' in j:
+            if 'Attributes' in j['Data']:
+                # Standard format
+                printer = {
+                    'connection': j['Id'],
+                    'name': j['Data']['Attributes'].get('Name', 'Unknown Printer'),
+                    'model': j['Data']['Attributes'].get('MachineName', 'Unknown Model'),
+                    'brand': j['Data'].get('BrandName', 'ELEGOO'),
+                    'ip': j['Data'].get('MainboardIP', addr[0] if addr else 'Unknown'),
+                    'protocol': j['Data'].get('ProtocolVersion', 'Unknown'),
+                    'firmware': j['Data'].get('FirmwareVersion', 'Unknown'),
+                    'status': 'disconnected',
+                    'last_seen': time.time(),
+                    'files': {}  # Initialize files dictionary
+                }
+            else:
+                # Alternative format
+                printer = {
+                    'connection': j['Id'],
+                    'name': j['Data'].get('Name', 'Unknown Printer'),
+                    'model': j['Data'].get('MachineName', 'Unknown Model'),
+                    'brand': j['Data'].get('BrandName', 'ELEGOO'),
+                    'ip': j['Data'].get('MainboardIP', addr[0] if addr else 'Unknown'),
+                    'protocol': j['Data'].get('ProtocolVersion', 'Unknown'),
+                    'firmware': j['Data'].get('FirmwareVersion', 'Unknown'),
+                    'status': 'disconnected',
+                    'last_seen': time.time(),
+                    'files': {}  # Initialize files dictionary
+                }
+        else:
+            # Fallback format
+            printer = {
+                'connection': j.get('Id', 'Unknown'),
+                'name': 'Unknown Printer',
+                'model': 'Unknown Model',
+                'brand': 'ELEGOO',
+                'ip': addr[0] if addr else 'Unknown',
+                'protocol': 'Unknown',
+                'firmware': 'Unknown',
+                'status': 'disconnected',
+                'last_seen': time.time(),
+                'files': {}  # Initialize files dictionary
+            }
+        
+        # Extract printer ID
+        if 'Data' in j and 'MainboardID' in j['Data']:
+            printer_id = j['Data']['MainboardID']
+        elif 'Data' in j and 'Attributes' in j['Data'] and 'MainboardID' in j['Data']['Attributes']:
+            printer_id = j['Data']['Attributes']['MainboardID']
+        else:
+            printer_id = f"unknown_{addr[0]}" if addr else f"unknown_{uuid.uuid4()}"
+        
+        logger.info(f"Discovered: {printer['name']} ({printer['ip']})")
+        
+        if printer_id:
+            printers[printer_id] = printer
+        
+        return printer
+    except Exception as e:
+        logger.error(f"Error parsing printer data: {e}")
+        
+        # Create minimal printer entry on error
+        if addr:
+            minimal_printer = {
+                'connection': f"manual_{uuid.uuid4().hex[:8]}",
+                'name': f"Printer at {addr[0]}",
+                'model': 'Unknown Model',
+                'brand': 'ELEGOO',
+                'ip': addr[0],
+                'protocol': 'Unknown',
+                'firmware': 'Unknown',
+                'status': 'disconnected',
+                'last_seen': time.time(),
+                'files': {}  # Initialize files dictionary
+            }
+            return minimal_printer
         return None
+def add_printer_manually(name: str, ip: str, model: str = "unknown", brand: str = "unknown") -> Dict[str, Any]:
+    """Manually add a printer when UDP broadcast is disabled."""
+    pid = hashlib.md5(ip.encode()).hexdigest()
 
-
-def add_printer_manually(name, ip, model="unknown", brand="unknown"):
-    """
-    Add a printer manually by IP address.
-
-    Args:
-        name (str): Printer name
-        ip (str): Printer IP address
-        model (str): Printer model (optional)
-        brand (str): Printer brand (optional)
-
-    Returns:
-        dict: Printer information or None on error
-    """
-    # Generate a unique ID for the printer
-    printer_id = hashlib.md5(ip.encode('utf-8')).hexdigest()
-
-    printer = {
-        'id': printer_id,
-        'connection': f"manual_{uuid.uuid4().hex[:8]}",
-        'name': name,
-        'model': model.lower(),
-        'brand': brand.lower(),
-        'ip': ip,
-        'protocol': "unknown",
-        'firmware': "unknown",
-        'status': 'disconnected',
-        'last_seen': time.time(),
-        'machine_status': None,
-        'print_status': None,
-        'files': [],
-        'print_progress': None,
-        'current_file': None,
-        'remain_time': None,
-        'manually_added': True,
-        'supports_camera': False,
+    printer: Dict[str, Any] = {
+        "id": pid,
+        "connection": f"manual_{uuid.uuid4().hex[:8]}",
+        "name": name,
+        "model": model.lower(),
+        "brand": brand.lower(),
+        "ip": ip,
+        "protocol": "unknown",
+        "firmware": "unknown",
+        "status": "disconnected",
+        "last_seen": time.time(),
+        "machine_status": None,
+        "print_status": None,
+        "files": {},
+        "print_progress": None,
+        "current_file": None,
+        "remain_time": None,
+        "manually_added": True,
+        "supports_camera": False,
     }
 
-    # Set printer icon based on brand and model
     icon_key = f"{printer['brand']}_{printer['model']}".replace(" ", "")
-    printer['icon'] = PRINTER_ICONS.get(icon_key, PRINTER_ICONS['default'])
+    printer["icon"] = PRINTER_ICONS.get(icon_key, PRINTER_ICONS["default"])
 
-    # Check if model supports camera
-    for model_name in CAMERA_ENABLED_MODELS:
-        if model_name in printer['model'].lower():
-            printer['supports_camera'] = True
-            printer['camera_config'] = CAMERA_ENABLED_MODELS[model_name]
+    for mdl, cfg in CAMERA_ENABLED_MODELS.items():
+        if mdl in printer["model"]:
+            printer["supports_camera"] = True
+            printer["camera_config"] = cfg
             break
 
-    # Try to connect to the printer to validate with more robust error handling
-    connection_successful = False
-    error_message = None
+    # Simple reachability check
+    if not _ping(ip):
+        logger.warning(f"{ip} is not reachable – adding anyway (manual)")
 
-    # Try multiple connection methods
-    try:
-        # First try WebSocket connection
-        logger.info(
-            f"Attempting WebSocket connection to printer: {name} ({ip})")
-        url = f"ws://{ip}:3030/websocket"
-        websocket.setdefaulttimeout(10)
+    with printer_lock:
+        printers[pid] = printer
+    Thread(target=lambda: connect_printer(pid), daemon=True).start()
+    return printer
 
+def remove_printer_manul
+
+
+# ============================================================================
+# Connection & WebSocket handlers
+# ----------------------------------------------------------------------------
+
+def connect_printer(pid: str) -> bool:
+    """Connect to a specific printer by ID."""
+    if pid not in printers:
+        logger.error(f"Unknown printer {pid}")
+        return False
+    
+    printer = printers[pid]
+    logger.info(f"Connecting to printer: {printer['name']} ({printer['ip']})")
+    
+    websocket.setdefaulttimeout(WS_TIMEOUT)
+    
+    for port in WS_PORTS:
+        url = f"ws://{printer['ip']}:{port}/websocket"
+        logger.info(f"▶ Trying connection on {url}")
+        
         try:
-            ws = websocket.create_connection(url)
-            ws.close()
-            connection_successful = True
-            logger.info(
-                f"WebSocket connection successful to printer: {name} ({ip})")
-        except Exception as ws_error:
-            # WebSocket failed, try HTTP connection
-            logger.warning(f"WebSocket connection failed: {ws_error}")
-            logger.info(
-                f"Attempting HTTP connection to printer: {name} ({ip})")
-
-            try:
-                http_url = f"http://{ip}:3030/"
-                response = requests.get(http_url, timeout=5)
-                if response.status_code < 400:
-                    connection_successful = True
-                    logger.info(
-                        f"HTTP connection successful to printer: {name} ({ip})")
-                else:
-                    error_message = f"HTTP request failed with status {response.status_code}"
-                    logger.error(error_message)
-            except Exception as http_error:
-                # HTTP failed, try a ping
-                logger.warning(f"HTTP connection failed: {http_error}")
-                logger.info(f"Attempting to ping printer: {name} ({ip})")
-
-                try:
-                    import subprocess
-                    ping_result = subprocess.run(['ping', '-c', '1', '-W', '2', ip],
-                                                 capture_output=True, text=True)
-                    if ping_result.returncode == 0:
-                        connection_successful = True
-                        logger.info(
-                            f"Ping successful to printer: {name} ({ip})")
-                    else:
-                        error_message = "Ping failed, printer not reachable"
-                        logger.error(error_message)
-                except Exception as ping_error:
-                    error_message = f"All connection attempts failed: {ping_error}"
-                    logger.error(error_message)
-
-        if connection_successful:
-            # Add printer to global list
-            with printer_lock:
-                printers[printer_id] = printer
-
-            # Special handling for Saturn Ultra 16K
-            if "saturn" in model.lower() and "16k" in model.lower():
-                logger.info(f"Special handling for Saturn Ultra 16K model")
-                printer['model'] = "saturnultra16k"
-                printer['supports_camera'] = True
-                printer['camera_config'] = CAMERA_ENABLED_MODELS.get(
-                    "saturnultra16k", {})
-
-            connect_printer(printer_id)
-            return printer
-        else:
-            raise Exception(
-                error_message or "Connection failed for unknown reason")
-
-    except Exception as e:
-        logger.error(
-            f"Failed to connect to manually added printer {name} ({ip}): {e}")
-        return None
+            ws = websocket.WebSocketApp(
+                url,
+                on_open=lambda *_: _ws_open(pid),
+                on_message=lambda _, msg: _ws_message(pid, msg),
+                on_close=lambda _, c, m: _ws_close(pid, c, m),
+                on_error=lambda _, err: _ws_error(pid, err),
+            )
+            websockets[pid] = ws
+            Thread(target=lambda: ws.run_forever(reconnect=5, ping_interval=30, ping_timeout=10), daemon=True).start()
+            return True
+        except OSError as exc:
+            logger.warning(f"Port {port} failed: {exc}")
+            continue
+    
+    logger.error(f"All WS ports failed for {printer['name']} ({printer['ip']})")
+    return False
 
 
-def connect_printers():
-    """
-    Connect to all discovered printers.
+# — WebSocket event callbacks —
 
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    logger.info("Connecting to printers...")
-
-    for printer_id, printer in list(printers.items()):
-        connect_printer(printer_id)
-
-    return True
-
-
-def connect_printer(printer_id):
-    """
-    Connect to a specific printer by ID.
-
-    Args:
-        printer_id (str): Printer ID
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    if printer_id not in printers:
-        logger.error(f"Printer {printer_id} not found")
-        return False
-
-    printer = printers[printer_id]
-    url = f"ws://{printer['ip']}:3030/websocket"
-
-    logger.info(f"Connecting to printer: {printer['name']} ({url})")
-
-    try:
-        websocket.setdefaulttimeout(10)
-        ws = websocket.WebSocketApp(
-            url,
-            on_message=lambda ws, msg: ws_message_handler(ws, msg, printer_id),
-            on_open=lambda ws: ws_open_handler(ws, printer_id),
-            on_close=lambda ws, status, msg: ws_close_handler(
-                ws, status, msg, printer_id),
-            on_error=lambda ws, error: ws_error_handler(ws, error, printer_id)
-        )
-
-        # Store websocket
-        websockets[printer_id] = ws
-
-        # Start websocket in a separate thread
-        Thread(target=lambda: ws.run_forever(reconnect=3), daemon=True).start()
-        return True
-
-    except Exception as e:
-        logger.error(f"Error connecting to printer {printer['name']}: {e}")
-        return False
-
-
-def ws_open_handler(ws, printer_id):
-    """
-    WebSocket open event handler.
-
-    Args:
-        ws (WebSocketApp): WebSocket instance
-        printer_id (str): Printer ID
-    """
-    if printer_id not in printers:
-        logger.warning(
-            f"WebSocket connected for unknown printer: {printer_id}")
-        return
-
-    printer = printers[printer_id]
-    logger.info(f"Connected to printer: {printer['name']}")
-
-    # Update printer status
+def _ws_open(pid: str):
+    """WebSocket open event handler."""
     with printer_lock:
-        printer['status'] = 'connected'
-        printer['last_seen'] = time.time()
-
+        printers[pid]["status"] = "connected"
+        printers[pid]["last_seen"] = time.time()
+    
+    logger.info(f"WS connected: {printers[pid]['name']}")
+    
     # Request initial status and attributes
-    get_printer_status(printer_id)
-    get_printer_attributes(printer_id)
-    get_printer_files(printer_id, '/local')
+    _ws_send(pid, "STATUS")
+    _ws_send(pid, "ATTRIBUTES")
+    _ws_send(pid, "FILE_LIST", {"Url": "/local"})
 
 
-def ws_close_handler(ws, status, message, printer_id):
-    """
-    WebSocket close event handler.
-
-    Args:
-        ws (WebSocketApp): WebSocket instance
-        status (int): Close status code
-        message (str): Close message
-        printer_id (str): Printer ID
-    """
-    if printer_id not in printers:
-        return
-
-    printer = printers[printer_id]
-    logger.info(
-        f"Disconnected from printer: {printer['name']}, status: {status}, message: {message}")
-
-    # Update printer status
+def _ws_close(pid: str, code: int, msg: str):
+    """WebSocket close event handler."""
     with printer_lock:
-        printer['status'] = 'disconnected'
+        printers[pid]["status"] = "disconnected"
+    logger.info(f"WS closed ({code}): {printers[pid]['name']} – {msg}")
 
 
-def ws_error_handler(ws, error, printer_id):
-    """
-    WebSocket error event handler.
-
-    Args:
-        ws (WebSocketApp): WebSocket instance
-        error (Exception): Error object
-        printer_id (str): Printer ID
-    """
-    if printer_id not in printers:
-        return
-
-    printer = printers[printer_id]
-    logger.error(f"WebSocket error for printer {printer['name']}: {error}")
+def _ws_error(pid: str, err: Exception):
+    """WebSocket error event handler."""
+    logger.error(f"WS error for {pid}: {err}")
 
 
-def ws_message_handler(ws, message, printer_id):
-    """
-    Robust WebSocket message handler with enhanced error logging
-
-    Args:
-        ws (WebSocketApp): WebSocket instance
-        message (str): Received message
-        printer_id (str): Printer ID
-    """
-    if printer_id not in printers:
-        logger.warning(f"Received message for unknown printer: {printer_id}")
+def _ws_message(pid: str, raw: str):
+    """WebSocket message handler."""
+    if pid not in printers:
+        logger.warning(f"Received message for unknown printer: {pid}")
         return
 
     try:
         # Parse message with error handling
         try:
-            data = json.loads(message)
+            packet = json.loads(raw)
         except json.JSONDecodeError as json_err:
-            logger.error(
-                f"Failed to parse JSON message for printer {printer_id}: {json_err}")
-            logger.error(f"Problematic message: {message}")
+            logger.error(f"Failed to parse JSON message for printer {pid}: {json_err}")
+            logger.error(f"Problematic message: {raw}")
             return
 
         # Log full message for debugging
-        logger.debug(
-            f"Received message from printer {printer_id}: {json.dumps(data, indent=2)}")
-
-        # Validate message structure
-        if not isinstance(data, dict):
-            logger.warning(
-                f"Unexpected message format for printer {printer_id}: {type(data)}")
-            return
+        logger.debug(f"Received message from printer {pid}: {json.dumps(packet, indent=2)}")
 
         # Process message topic
-        topic = data.get('Topic', '')
-
-        # Extensive error handling for each message type
-        try:
-            if topic.startswith('sdcp/status/'):
-                process_status_message(data, printer_id)
-            elif topic.startswith('sdcp/attributes/'):
-                process_attributes_message(data, printer_id)
-            elif topic.startswith('sdcp/response/'):
-                process_response_message(data, printer_id)
-            elif topic.startswith('sdcp/error/'):
-                process_error_message(data, printer_id)
-            elif topic.startswith('sdcp/notice/'):
-                process_notice_message(data, printer_id)
-            else:
-                logger.warning(f"Received unknown message topic: {topic}")
-
-        except Exception as process_err:
-            logger.error(
-                f"Error processing {topic} message for printer {printer_id}: {process_err}")
-            logger.error(
-                f"Problematic message data: {json.dumps(data, indent=2)}")
+        topic = packet.get("Topic", "")
+        
+        HANDLERS = {
+            "sdcp/status/": _on_status,
+            "sdcp/attributes/": _on_attributes,
+            "sdcp/response/": _on_response,
+            "sdcp/error/": _on_error,
+            "sdcp/notice/": _on_notice,
+        }
+        
+        # Route message to correct handler
+        for prefix, handler in HANDLERS.items():
+            if topic.startswith(prefix):
+                try:
+                    handler(pid, packet)
+                except Exception as process_err:
+                    logger.error(f"Error processing {topic} message for printer {pid}: {process_err}")
+                    logger.error(f"Problematic message data: {json.dumps(packet, indent=2)}")
+                return
+                
+        logger.warning(f"Received unknown message topic: {topic}")
 
     except Exception as e:
-        logger.error(
-            f"Unexpected error in WebSocket message handler for printer {printer_id}: {e}")
-        logger.error(f"Original message: {message}")
+        logger.error(f"Unexpected error in WebSocket message handler for printer {pid}: {e}")
+        logger.error(f"Original message: {raw}")
 
 
-def process_status_message(data, printer_id):
-    """
-    Robust process_status_message with enhanced error handling
+# ============================================================================
+# Message processors
+# ----------------------------------------------------------------------------
 
-    Args:
-        data (dict): Message data
-        printer_id (str): Printer ID
-    """
-    if printer_id not in printers:
-        return
-
-    # Safely extract status data
-    try:
-        status_data = data.get('Status', {})
-
-        # Validate status data structure
-        if not isinstance(status_data, dict):
-            logger.warning(
-                f"Invalid status data type for printer {printer_id}: {type(status_data)}")
-            return
-
-        # Safe extraction of current status with extensive type handling
-        current_status = status_data.get('CurrentStatus')
-
-        # Normalize current_status to a single integer
-        machine_status_code = 0
-        if current_status is not None:
-            if isinstance(current_status, list):
-                # If it's a list, try to get the first element
-                try:
-                    machine_status_code = int(
-                        current_status[0]) if current_status else 0
-                except (IndexError, ValueError, TypeError):
-                    machine_status_code = 0
-            elif isinstance(current_status, (int, str)):
-                try:
-                    machine_status_code = int(current_status)
-                except (ValueError, TypeError):
-                    machine_status_code = 0
-
-        # Thread-safe update of printer status
-        with printer_lock:
-            # Get machine status name safely
-            machine_status_name = MACHINE_STATUS.get(
-                machine_status_code,
-                {'name': 'UNKNOWN'}
-            )['name']
-
-            printers[printer_id]['machine_status'] = machine_status_name
-
-            # Process print info
-            print_info = status_data.get('PrintInfo', {})
-
-            # Only process print info if printing
-            if print_info and machine_status_code == 1:  # PRINTING
-                # Safe extraction of print information
-                printers[printer_id]['print_status'] = print_info.get(
-                    'PrintStatus')
-                printers[printer_id]['current_file'] = print_info.get(
-                    'Filename')
-
-                # Calculate progress safely
-                try:
-                    layer = int(print_info.get('Layer', 0))
-                    total_layers = int(print_info.get('TotalLayer', 1))
-                    progress = round((layer / total_layers) *
-                                     100) if total_layers > 0 else 0
-                    printers[printer_id]['print_progress'] = progress
-                except (TypeError, ValueError):
-                    printers[printer_id]['print_progress'] = None
-
-                # Set remaining time
-                try:
-                    remain_time = int(print_info.get('RemainTime', 0))
-                    printers[printer_id]['remain_time'] = remain_time
-                except (TypeError, ValueError):
-                    printers[printer_id]['remain_time'] = None
-
-            # Reset print-related info if not printing
-            elif machine_status_code == 0:  # IDLE
-                printers[printer_id]['print_status'] = None
-                printers[printer_id]['current_file'] = None
-                printers[printer_id]['print_progress'] = None
-                printers[printer_id]['remain_time'] = None
-
-        # Emit status update to all clients
-        from app import socketio
-        socketio.emit('printer_status', {
-            'id': printer_id,
-            'status': printers[printer_id]['status'],
-            'machine_status': printers[printer_id]['machine_status'],
-            'print_status': printers[printer_id]['print_status'],
-            'print_progress': printers[printer_id]['print_progress'],
-            'current_file': printers[printer_id]['current_file'],
-            'remain_time': printers[printer_id]['remain_time']
-        })
-
-    except Exception as e:
-        logger.error(
-            f"Unexpected error processing status message for printer {printer_id}: {e}")
-        logger.error(f"Full status data: {json.dumps(status_data, indent=2)}")
-
-
-def process_attributes_message(data, printer_id):
-    """
-    Process printer attributes message.
-
-    Args:
-        data (dict): Message data
-        printer_id (str): Printer ID
-    """
-    if printer_id not in printers:
-        return
-
-    attributes_data = data.get('Attributes', {})
-
-    # Extract important attributes
+def _on_status(pid: str, packet: Dict[str, Any]):
+    """Process printer status messages."""
+    status = packet.get("Status", {})
+    
+    # Parse machine status code
+    current_status = status.get("CurrentStatus")
+    
+    # Normalize current_status to a single integer
+    machine_status_code = 0
+    if current_status is not None:
+        if isinstance(current_status, list):
+            # If it's a list, try to get the first element
+            try:
+                machine_status_code = int(current_status[0]) if current_status else 0
+            except (IndexError, ValueError, TypeError):
+                machine_status_code = 0
+        elif isinstance(current_status, (int, str)):
+            try:
+                machine_status_code = int(current_status)
+            except (ValueError, TypeError):
+                machine_status_code = 0
+    
+    # Get machine status name
+    machine_status_name = MACHINE_STATUS.get(
+        machine_status_code,
+        {"name": "UNKNOWN"}
+    )["name"]
+    
+    # Detect finish transition
+    finished = False
+    
     with printer_lock:
-        # Resolution
-        resolution = attributes_data.get('Resolution', [])
-        if resolution and len(resolution) >= 2:
-            printers[printer_id]['resolution'] = resolution
+        p = printers[pid]
+        prev = p.get("machine_status")
+        p["machine_status"] = machine_status_name
+        
+        if machine_status_name == "PRINTING":
+            info = status.get("PrintInfo", {})
+            p["print_status"] = info.get("PrintStatus")
+            p["current_file"] = info.get("Filename")
+            
+            # Calculate progress safely
+            try:
+                layer = int(info.get("Layer", 0))
+                total_layers = int(info.get("TotalLayer", 1)) or 1
+                p["print_progress"] = round((layer / total_layers) * 100)
+            except (TypeError, ValueError):
+                p["print_progress"] = None
+            
+            p["remain_time"] = info.get("RemainTime")
+            
+        elif machine_status_name == "PAUSED":
+            p["print_status"] = "PAUSED"
+            
+        elif machine_status_name == "IDLE":
+            finished = prev == "PRINTING"  # Just completed a job
+            p["print_status"] = None
+            p["current_file"] = None
+            p["print_progress"] = None
+            p["remain_time"] = None
+    
+    # Emit status update to all clients
+    from app import socketio
+    socketio.emit("printer_status", {
+        "id": pid,
+        "status": printers[pid]["status"],
+        "machine_status": printers[pid]["machine_status"],
+        "print_status": printers[pid]["print_status"],
+        "print_progress": printers[pid]["print_progress"],
+        "current_file": printers[pid]["current_file"],
+        "remain_time": printers[pid]["remain_time"],
+    })
+    
+    # Auto-start next in queue after completion
+    if finished:
+        _start_next(pid)
 
-        # Build volume
-        build_volume = attributes_data.get('XYZsize', [])
-        if build_volume and len(build_volume) >= 3:
-            printers[printer_id]['build_volume'] = build_volume
 
-        # Camera status
-        camera_status = attributes_data.get('CameraStatus', 0)
-        printers[printer_id]['camera_status'] = camera_status == 1
-
+def _on_attributes(pid: str, packet: Dict[str, Any]):
+    """Process printer attributes messages."""
+    attrs = packet.get("Attributes", {})
+    
+    with printer_lock:
+        # Update printer attributes
+        printers[pid].update({
+            "resolution": attrs.get("Resolution"),
+            "build_volume": attrs.get("XYZsize"),
+            "camera_status": attrs.get("CameraStatus") == 1,
+        })
+    
     # Emit attributes update to all clients
     from app import socketio
-    socketio.emit('printer_attributes', {
-        'id': printer_id,
-        'attributes': attributes_data
-    })
+    socketio.emit("printer_attributes", {"id": pid, "attributes": attrs})
 
 
-def process_response_message(data, printer_id):
-    """
-    Process printer response message.
-
-    Args:
-        data (dict): Message data
-        printer_id (str): Printer ID
-    """
-    if printer_id not in printers:
-        return
-
-    cmd_data = data.get('Data', {})
-    cmd = cmd_data.get('Cmd')
-    response_data = cmd_data.get('Data', {})
-
+def _on_response(pid: str, packet: Dict[str, Any]):
+    """Process printer response messages."""
+    cmd_data = packet.get("Data", {})
+    cmd = cmd_data.get("Cmd")
+    response_data = cmd_data.get("Data", {})
+    
     # Process file list response
-    if cmd == 258:  # RETRIEVE_FILE_LIST
-        file_list = response_data.get('FileList', [])
-        url = response_data.get('Url', '')
-
-        # Store file list
-        if 'files' not in printers[printer_id]:
-            printers[printer_id]['files'] = {}
-        printers[printer_id]['files'][url] = file_list
-
+    if cmd == CMD["FILE_LIST"]:
+        url = response_data.get("Url", "/local")
+        with printer_lock:
+            # Fix: Use FileList from response_data
+            printers[pid]["files"][url] = response_data.get("FileList", [])
+    
     # Emit response to all clients
     from app import socketio
-    socketio.emit('printer_response', {
-        'id': printer_id,
-        'cmd': cmd,
-        'data': response_data
+    socketio.emit("printer_response", {
+        "id": pid,
+        "cmd": cmd,
+        "data": response_data
     })
 
 
-def process_error_message(data, printer_id):
-    """
-    Process printer error message.
-
-    Args:
-        data (dict): Message data
-        printer_id (str): Printer ID
-    """
-    if printer_id not in printers:
-        return
-
-    error_data = data.get('Data', {}).get('Data', {})
-    error_code = error_data.get('ErrorCode')
-    error_str = error_data.get('ErrorStr', f"Error code: {error_code}")
-
-    logger.error(f"Printer error ({printer_id}): {error_str}")
-
+def _on_error(pid: str, packet: Dict[str, Any]):
+    """Process printer error messages."""
+    error_data = packet.get("Data", {}).get("Data", {})
+    error_code = error_data.get("ErrorCode")
+    error_str = error_data.get("ErrorStr", f"Error code: {error_code}")
+    
+    logger.error(f"Printer error ({pid}): {error_str}")
+    
     # Emit error to all clients
     from app import socketio
-    socketio.emit('printer_error', {
-        'id': printer_id,
-        'error_code': error_code,
-        'error_message': error_str
+    socketio.emit("printer_error", {
+        "id": pid,
+        "error_code": error_code,
+        "error_message": error_str
     })
 
 
-def process_notice_message(data, printer_id):
-    """
-    Process printer notice message.
-
-    Args:
-        data (dict): Message data
-        printer_id (str): Printer ID
-    """
-    if printer_id not in printers:
-        return
-
-    notice_data = data.get('Data', {}).get('Data', {})
-    message = notice_data.get('Message', 'Notification from printer')
-
-    logger.info(f"Printer notice ({printer_id}): {message}")
-
+def _on_notice(pid: str, packet: Dict[str, Any]):
+    """Process printer notice messages."""
+    notice_data = packet.get("Data", {}).get("Data", {})
+    message = notice_data.get("Message", "Notification from printer")
+    
+    logger.info(f"Printer notice ({pid}): {message}")
+    
     # Emit notice to all clients
     from app import socketio
-    socketio.emit('printer_notice', {
-        'id': printer_id,
-        'message': message
+    socketio.emit("printer_notice", {
+        "id": pid,
+        "message": message
     })
 
 
-def get_printer_status(printer_id):
-    """
-    Request printer status.
+# ============================================================================
+# Job‑queue helpers
+# ----------------------------------------------------------------------------
 
-    Args:
-        printer_id (str): Printer ID
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    return send_printer_command(printer_id, 0)
-
-
-def get_printer_attributes(printer_id):
-    """
-    Request printer attributes.
-
-    Args:
-        printer_id (str): Printer ID
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    return send_printer_command(printer_id, 1)
+def queue_print(pid: str, filename: str):
+    """Enqueue *filename*; start immediately if printer idle."""
+    with printer_lock:
+        if printers[pid]["machine_status"] not in ("PRINTING", "PAUSED"):
+            # Idle → print immediately
+            logger.info(f"Queue empty, starting {filename} on {pid}")
+            _ws_send(pid, "START_PRINT", {"Filename": filename, "StartLayer": 0})
+        else:
+            # Add to queue
+            job_queues[pid].append(filename)
+            logger.info(f"Queued {filename} on {pid} (len={len(job_queues[pid])})")
+    
+    _broadcast_queue(pid)
 
 
-def get_printer_files(printer_id, url):
-    """
-    Request printer files.
-
-    Args:
-        printer_id (str): Printer ID
-        url (str): Path URL ('/local' or '/usb')
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    return send_printer_command(printer_id, 258, {"Url": url})
+def _start_next(pid: str):
+    """Start the next print job in the queue."""
+    with printer_lock:
+        if job_queues[pid]:
+            nxt = job_queues[pid].pop(0)
+            logger.info(f"Auto‑starting next job {nxt} on {pid}")
+            _ws_send(pid, "START_PRINT", {"Filename": nxt, "StartLayer": 0})
+    
+    _broadcast_queue(pid)
 
 
-def start_print(printer_id, filename):
-    """
-    Start a print job.
-
-    Args:
-        printer_id (str): Printer ID
-        filename (str): File name to print
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    return send_printer_command(printer_id, 128, {"Filename": filename, "StartLayer": 0})
+def _broadcast_queue(pid: str):
+    """Broadcast current queue status to clients."""
+    from app import socketio
+    socketio.emit("printer_queue", {"id": pid, "queue": list(job_queues[pid])})
+    
+    if not job_queues[pid]:
+        socketio.emit("queue_empty", {"id": pid})
 
 
-def pause_print(printer_id):
-    """
-    Pause a print job.
+# ============================================================================
+# Public API wrappers
+# ----------------------------------------------------------------------------
 
-    Args:
-        printer_id (str): Printer ID
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    return send_printer_command(printer_id, 129)
+def get_printer_status(pid: str) -> bool:
+    """Request printer status."""
+    return _ws_send(pid, "STATUS")
 
 
-def resume_print(printer_id):
-    """
-    Resume a paused print job.
-
-    Args:
-        printer_id (str): Printer ID
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    return send_printer_command(printer_id, 131)
+def get_printer_attributes(pid: str) -> bool:
+    """Request printer attributes."""
+    return _ws_send(pid, "ATTRIBUTES")
 
 
-def stop_print(printer_id):
-    """
-    Stop a print job.
-
-    Args:
-        printer_id (str): Printer ID
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    return send_printer_command(printer_id, 130)
+def get_printer_files(pid: str, url: str = "/local") -> bool:
+    """Request printer files."""
+    return _ws_send(pid, "FILE_LIST", {"Url": url})
 
 
-def delete_file(printer_id, filename):
-    """
-    Delete a file from the printer.
-
-    Args:
-        printer_id (str): Printer ID
-        filename (str): File name to delete
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    return send_printer_command(printer_id, 259, {"FileList": [filename]})
+def start_print(pid: str, filename: str) -> bool:
+    """Start a print job."""
+    return _ws_send(pid, "START_PRINT", {"Filename": filename, "StartLayer": 0})
 
 
-def set_camera_status(printer_id, enable=True):
-    """
-    Enable or disable the camera.
-
-    Args:
-        printer_id (str): Printer ID
-        enable (bool): Whether to enable the camera
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    return send_printer_command(printer_id, 386, {"Enable": 1 if enable else 0})
+def pause_print(pid: str) -> bool:
+    """Pause a print job."""
+    return _ws_send(pid, "PAUSE_PRINT")
 
 
-def rename_printer(printer_id, new_name):
-    """
-    Rename a printer.
+def resume_print(pid: str) -> bool:
+    """Resume a paused print job."""
+    return _ws_send(pid, "RESUME_PRINT")
 
-    Args:
-        printer_id (str): Printer ID
-        new_name (str): New printer name
 
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    result = send_printer_command(printer_id, 192, {"Name": new_name})
+def stop_print(pid: str) -> bool:
+    """Stop a print job."""
+    return _ws_send(pid, "STOP_PRINT")
 
-    if result and printer_id in printers:
-        printers[printer_id]['name'] = new_name
 
+def delete_file(pid: str, filename: str) -> bool:
+    """Delete a file from the printer."""
+    return _ws_send(pid, "DELETE_FILE", {"FileList": [filename]})
+
+
+def set_camera_status(pid: str, enable: bool = True) -> bool:
+    """Enable or disable the camera."""
+    return _ws_send(pid, "CAMERA_CONTROL", {"Enable": 1 if enable else 0})
+
+
+def rename_printer(pid: str, new_name: str) -> bool:
+    """Rename a printer."""
+    result = _ws_send(pid, "RENAME_PRINTER", {"Name": new_name})
+    
+    if result and pid in printers:
+        with printer_lock:
+            printers[pid]['name'] = new_name
+    
     return result
 
 
-def send_printer_command(printer_id, cmd, data=None):
-    """
-    Send a command to the printer.
+# ============================================================================
+# Upload and diagnostics utilities
+# ----------------------------------------------------------------------------
 
-    Args:
-        printer_id (str): Printer ID
-        cmd (int): Command code
-        data (dict, optional): Additional command data
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    if printer_id not in printers or printer_id not in websockets:
-        logger.error(
-            f"Cannot send command to printer {printer_id}: not connected")
-        return False
-
-    printer = printers[printer_id]
-    ws = websockets[printer_id]
-
-    if not data:
-        data = {}
-
-    # Create command payload
-    payload = {
-        "Id": printer['connection'],
-        "Data": {
-            "Cmd": cmd,
-            "Data": data,
-            "RequestID": os.urandom(8).hex(),
-            "MainboardID": printer_id,
-            "TimeStamp": int(time.time()),
-            "From": 0
-        },
-        "Topic": "sdcp/request/" + printer_id
-    }
-
-    try:
-        # Send command
-        ws.send(json.dumps(payload))
-        logger.debug(f"Sent command {cmd} to printer {printer_id}")
-        return True
-    except Exception as e:
-        logger.error(f"Error sending command to printer {printer_id}: {e}")
-        return False
-
-
-def upload_file_to_printer(task_id, printer_id, filepath):
+def upload_file_to_printer(task_id: str, pid: str, filepath: str):
     """
     Upload a file to the printer.
-
+    
     Args:
         task_id (str): Upload task ID
-        printer_id (str): Printer ID
+        pid (str): Printer ID
         filepath (str): Path to file
     """
-    if printer_id not in printers:
-        logger.error(f"Cannot upload file to printer {printer_id}: not found")
-        update_upload_progress(task_id, 0, "error",
-                               f"Printer {printer_id} not found")
+    if pid not in printers:
+        logger.error(f"Cannot upload file to printer {pid}: not found")
+        update_upload_progress(task_id, 0, "error", f"Printer {pid} not found")
         return
 
-    printer = printers[printer_id]
+    printer = printers[pid]
 
     # Verify file exists
     if not os.path.exists(filepath):
@@ -883,15 +784,13 @@ def upload_file_to_printer(task_id, printer_id, filepath):
                 md5_hash.update(byte_block)
     except Exception as e:
         logger.error(f"Error calculating MD5 hash: {e}")
-        update_upload_progress(task_id, 0, "error",
-                               f"File read error: {str(e)}")
+        update_upload_progress(task_id, 0, "error", f"File read error: {str(e)}")
         return
 
     file_stats = os.stat(filepath)
     filename = os.path.basename(filepath)
 
     # Upload parameters
-    part_size = 1048576  # 1MB chunks
     post_data = {
         'S-File-MD5': md5_hash.hexdigest(),
         'Check': 1,
@@ -901,13 +800,11 @@ def upload_file_to_printer(task_id, printer_id, filepath):
     }
 
     url = f'http://{printer["ip"]}:3030/uploadFile/upload'
-    num_parts = (int)(file_stats.st_size / part_size)
-    logger.info(
-        f"Uploading file {filename} to printer {printer['name']} in {num_parts} parts")
+    num_parts = (int)(file_stats.st_size / CHUNK_SIZE)
+    logger.info(f"Uploading file {filename} to printer {printer['name']} in {num_parts} parts")
 
     # Update progress
-    update_upload_progress(task_id, 0, "uploading",
-                           f"Starting upload to {printer['name']}")
+    update_upload_progress(task_id, 0, "uploading", f"Starting upload to {printer['name']}")
 
     # Upload parts
     try:
@@ -924,7 +821,7 @@ def upload_file_to_printer(task_id, printer_id, filepath):
 
         with tqdm(total=num_parts, desc=f"Uploading {filename}") as pbar:
             for i in range(num_parts + 1):
-                offset = i * part_size
+                offset = i * CHUNK_SIZE
                 progress = round(i / (num_parts + 1) * 100)
 
                 # Update progress
@@ -933,13 +830,11 @@ def upload_file_to_printer(task_id, printer_id, filepath):
 
                 with open(filepath, 'rb') as f:
                     f.seek(offset)
-                    file_part = f.read(part_size)
+                    file_part = f.read(CHUNK_SIZE)
 
                     if not upload_file_part(url, post_data, filename, file_part, offset, extra_headers):
-                        logger.error(
-                            f"Failed to upload part {i}/{num_parts} of file {filename}")
-                        update_upload_progress(
-                            task_id, progress, "error", "Upload failed")
+                        logger.error(f"Failed to upload part {i}/{num_parts} of file {filename}")
+                        update_upload_progress(task_id, progress, "error", "Upload failed")
                         break
 
                 pbar.update(1)
@@ -951,14 +846,12 @@ def upload_file_to_printer(task_id, printer_id, filepath):
         update_upload_progress(task_id, 100, "complete", "Upload complete")
 
         # Refresh file list
-        get_printer_files(printer_id, '/local')
+        get_printer_files(pid, '/local')
 
-        logger.info(
-            f"File {filename} uploaded successfully to printer {printer['name']}")
+        logger.info(f"File {filename} uploaded successfully to printer {printer['name']}")
 
     except Exception as e:
-        logger.error(
-            f"Error uploading file {filename} to printer {printer['name']}: {e}")
+        logger.error(f"Error uploading file {filename} to printer {printer['name']}: {e}")
         update_upload_progress(task_id, 0, "error", str(e))
 
         # Cleanup
@@ -966,10 +859,11 @@ def upload_file_to_printer(task_id, printer_id, filepath):
             os.remove(filepath)
 
 
-def upload_file_part(url, post_data, file_name, file_part, offset, extra_headers=None):
+def upload_file_part(url: str, post_data: dict, file_name: str, file_part: bytes, offset: int, 
+                   extra_headers: Optional[dict] = None) -> bool:
     """
     Upload a part of a file to the printer.
-
+    
     Args:
         url (str): Upload URL
         post_data (dict): POST data
@@ -977,7 +871,7 @@ def upload_file_part(url, post_data, file_name, file_part, offset, extra_headers
         file_part (bytes): File part data
         offset (int): File offset
         extra_headers (dict, optional): Additional headers
-
+        
     Returns:
         bool: True if successful, False otherwise
     """
@@ -1036,10 +930,10 @@ def upload_file_part(url, post_data, file_name, file_part, offset, extra_headers
         return False
 
 
-def update_upload_progress(task_id, progress, status, message=""):
+def update_upload_progress(task_id: str, progress: int, status: str, message: str = ""):
     """
     Update upload progress.
-
+    
     Args:
         task_id (str): Upload task ID
         progress (int): Progress percentage (0-100)
@@ -1063,8 +957,16 @@ def update_upload_progress(task_id, progress, status, message=""):
     socketio.emit('upload_progress', upload_progress[task_id])
 
 
-def debug_printer_connection(ip):
-    """Debug printer connection issues."""
+def debug_printer_connection(ip: str) -> dict:
+    """
+    Debug printer connection issues.
+    
+    Args:
+        ip (str): Printer IP address
+        
+    Returns:
+        dict: Diagnostic results
+    """
     try:
         logger.info(f"Testing connection to printer at {ip}")
         results = {
@@ -1076,10 +978,9 @@ def debug_printer_connection(ip):
 
         # Test ping
         try:
-            import subprocess
             logger.info(f"Pinging {ip}...")
             ping_result = subprocess.run(['ping', '-c', '2', '-W', '2', ip],
-                                         capture_output=True, text=True)
+                                        capture_output=True, text=True)
             if ping_result.returncode == 0:
                 results["ping"]["status"] = "success"
                 results["ping"]["message"] = "Ping successful"
@@ -1144,3 +1045,14 @@ def debug_printer_connection(ip):
             "websocket": {"status": "error", "message": "Test failed"},
             "overall": {"status": "error", "message": f"Error during diagnostics: {str(e)}"}
         }
+    
+
+def connect_printers():
+    """Connect to all printers in the registry."""
+    connected = 0
+    for printer_id in list(printers.keys()):
+        if connect_printer(printer_id):
+            connected += 1
+    
+    logger.info(f"Connected to {connected}/{len(printers)} printers")
+    return connected

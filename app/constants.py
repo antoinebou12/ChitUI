@@ -7,27 +7,33 @@ ALLOWED_EXTENSIONS = {'ctb', 'goo', 'prz'}
 
 # Machine statuses
 MACHINE_STATUS = {
-    0: {"name": "IDLE", "description": "Idle"},
-    1: {"name": "PRINTING", "description": "Executing print task"},
-    2: {"name": "FILE_TRANSFERRING", "description": "File transfer in progress"},
-    3: {"name": "EXPOSURE_TESTING", "description": "Exposure test in progress"},
-    4: {"name": "DEVICES_TESTING", "description": "Device self-check in progress"},
-    8: {"name": "UNKNOWN_8", "description": "UNKNOWN, sent after file transfer"}
+    0: {"name": "IDLE",             "description": "Idle"},
+    1: {"name": "PRINTING",         "description": "Executing print task"},
+    2: {"name": "PAUSED",           "description": "Suspended"},
+    3: {"name": "STOPPED",          "description": "Stopped"},
+    4: {"name": "HOMING",           "description": "Resetting"},
+    5: {"name": "DROPPING",         "description": "Descending"},
+    6: {"name": "LIFTING",          "description": "Lifting"},
+    7: {"name": "EXPOSING",         "description": "Exposing"},
+    8: {"name": "FILE_TRANSFER",    "description": "File transfer in progress"},
+    9: {"name": "EXPOSURE_TEST",    "description": "Exposure test in progress"},
+    10: {"name": "DEVICE_CHECK",    "description": "Device self‑check in progress"},
+    11: {"name": "UNKNOWN",         "description": "Unknown / reserved"},
 }
 
 # Print statuses
 PRINT_STATUS = {
-    0: {"name": "IDLE", "description": "Idle"},
-    1: {"name": "HOMING", "description": "Resetting"},
-    2: {"name": "DROPPING", "description": "Descending"},
-    3: {"name": "EXPOSURING", "description": "Exposing"},
-    4: {"name": "LIFTING", "description": "Lifting"},
-    5: {"name": "PAUSING", "description": "Executing Pause Action"},
-    6: {"name": "PAUSED", "description": "Suspended"},
-    7: {"name": "STOPPING", "description": "Executing Stop Action"},
-    8: {"name": "STOPED", "description": "Stopped"},
-    9: {"name": "COMPLETE", "description": "Print Completed"},
-    10: {"name": "FILE_CHECKING", "description": "File Checking in Progress"}
+    0: {"name": "IDLE",          "description": "Idle"},
+    1: {"name": "HOMING",        "description": "Resetting"},
+    2: {"name": "DROPPING",      "description": "Descending"},
+    3: {"name": "EXPOSING",      "description": "Exposing"},
+    4: {"name": "LIFTING",       "description": "Lifting"},
+    5: {"name": "PAUSING",       "description": "Executing pause action"},
+    6: {"name": "PAUSED",        "description": "Suspended"},
+    7: {"name": "STOPPING",      "description": "Executing stop action"},
+    8: {"name": "STOPPED",       "description": "Stopped"},
+    9: {"name": "COMPLETE",      "description": "Print complete"},
+    10: {"name": "FILE_CHECK",   "description": "File checking in progress"},
 }
 
 # Print errors
@@ -64,51 +70,63 @@ PRINT_CTRL = {
 CMD = {
     "STATUS": 0,
     "ATTRIBUTES": 1,
-    "START_PRINTING": 128,
-    "PAUSE_PRINTING": 129,
-    "STOP_PRINTING": 130,
-    "CONTINUE_PRINTING": 131,
+    "START_PRINT": 128,
+    "PAUSE_PRINT": 129,
+    "STOP_PRINT": 130,
+    "RESUME_PRINT": 131,
     "STOP_FEEDING": 132,
     "SKIP_PREHEATING": 133,
     "CHANGE_PRINTER_NAME": 192,
     "TERMINATE_FILE_TRANSFER": 255,
-    "RETRIEVE_FILE_LIST": 258,
+    "FILE_LIST": 258,
     "BATCH_DELETE_FILES": 259,
-    "RETRIEVE_TASKS_HISTORY": 320,
-    "RETRIEVE_TASK_DETAILS": 321,
-    "VIDEO_STREAMING": 386,
-    "TIMELAPSE": 387
+    "TASK_HISTORY": 320,
+    "TASK_DETAILS": 321,
+    "VIDEO_STREAM": 386,
+    "TIMELAPSE": 387,
 }
 
 # Printer models that support camera streaming
 CAMERA_ENABLED_MODELS = {
     "saturnultra16k": {
-        "camera_url": "/camera/stream",
+        "snapshot": "http://{ip}:8899/snapshot",
+        "mjpeg":     "http://{ip}:8899/stream",
         "resolution": "1280x720",
-        "fps": 15
+        "fps": 15,
+    },
+    # Elegoo Saturn Ultra 14 K – same camera API but different model string
+    "saturnultra14k": {
+        "snapshot": "http://{ip}:8899/snapshot",
+        "mjpeg":     "http://{ip}:8899/stream",
+        "resolution": "1280x720",
+        "fps": 15,
     },
     "saturn4ultra": {
-        "camera_url": "/camera/stream",
+        "snapshot": "http://{ip}:8899/snapshot",
+        "mjpeg":     "http://{ip}:8899/stream",
         "resolution": "1280x720",
-        "fps": 15
+        "fps": 15,
     },
     "saturn4": {
-        "camera_url": "/camera/stream",
+        "snapshot": "http://{ip}:8899/snapshot",
+        "mjpeg":     "http://{ip}:8899/stream",
         "resolution": "1280x720",
-        "fps": 15
+        "fps": 15,
     },
     "saturn3ultra": {
-        "camera_url": "/camera/stream",
+        "snapshot": "http://{ip}:8899/snapshot",
+        "mjpeg":     "http://{ip}:8899/stream",
         "resolution": "1280x720",
-        "fps": 15
-    }
+        "fps": 15,
+    },
 }
 
 # Printer icons mapping
 PRINTER_ICONS = {
-    "elegoo_saturn4ultra": "/static/img/elegoo_saturn4ultra.webp",
-    "elegoo_saturn4": "/static/img/elegoo_saturn4ultra.webp",  # Reuse icon
-    "elegoo_saturn3ultra": "/static/img/elegoo_saturn4ultra.webp",  # Reuse icon
+    "elegoo_saturn4ultra":   "/static/img/elegoo_saturn4ultra.webp",
+    "elegoo_saturn4":        "/static/img/elegoo_saturn4ultra.webp",
+    "elegoo_saturn3ultra":   "/static/img/elegoo_saturn4ultra.webp",
     "elegoo_saturnultra16k": "/static/img/elegoo_saturn4ultra.webp",
-    "default": "/static/img/default_printer.png"
+    "elegoo_saturnultra14k": "/static/img/elegoo_saturn4ultra.webp",
+    "default":               "/static/img/default_printer.png",
 }

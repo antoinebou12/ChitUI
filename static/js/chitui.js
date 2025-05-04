@@ -61,7 +61,7 @@ function initSocketIO() {
  */
 function setupEventListeners() {
   // Discover button
-  document.getElementById('btnDiscover').addEventListener('click', discoverPrinters);
+  document.getElementById('btnScanLAN').addEventListener('click', discoverPrinters);
 
   // Upload button
   document.getElementById('btnUpload').addEventListener('click', handleUploadClick);
@@ -142,12 +142,18 @@ function updatePrintersList() {
     // Set printer data
     const printerItem = item.querySelector('.printerListItem');
     printerItem.dataset.printerId = id;
+    
+    // Add event listener for selection
     printerItem.addEventListener('click', (e) => {
+      // Prevent click from triggering on delete button
+      if (e.target.closest('.btn-delete-printer')) {
+        return;
+      }
       e.preventDefault();
       selectPrinter(id);
     });
 
-    // Set printer icon
+    // Set printer icon with fallback
     const iconImg = item.querySelector('.printerIcon');
     iconImg.src = printer.icon || '/static/img/default_printer.png';
     iconImg.onerror = function () {
@@ -167,8 +173,84 @@ function updatePrintersList() {
     } else {
       statusIcon.className = 'bi bi-circle-fill text-danger';
     }
+    
+    // Add delete button
+    const headerDiv = item.querySelector('.d-flex.flex-row.align-items-center.justify-content-between');
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-sm btn-outline-danger ms-2 btn-delete-printer';
+    deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+    deleteBtn.title = "Remove printer";
+    deleteBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      confirmDeletePrinter(id, printer.name);
+    });
+    headerDiv.appendChild(deleteBtn);
 
     printersList.appendChild(item);
+  });
+}
+
+// Add function to confirm printer deletion
+function confirmDeletePrinter(printerId, printerName) {
+  showConfirmModal('delete-printer', printerName);
+  
+  // Update the confirm button to handle printer deletion
+  const confirmBtn = document.getElementById('btnConfirm');
+  confirmBtn.dataset.printerId = printerId;
+  
+  // Override the existing handler temporarily
+  const originalHandler = confirmBtn.onclick;
+  confirmBtn.onclick = function() {
+    if (confirmBtn.dataset.action === 'delete-printer') {
+      deletePrinter(printerId);
+    } else {
+      // Call original handler for other actions
+      if (originalHandler) originalHandler.call(this);
+    }
+  };
+}
+
+// Add function to delete a printer
+function deletePrinter(printerId) {
+  // Close the modal first
+  if (confirmModal) confirmModal.hide();
+  
+  // Call API to delete printer
+  fetch(`/api/printer/${printerId}/remove`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Remove from local cache
+      delete printers[printerId];
+      
+      // Update UI
+      updatePrintersList();
+      
+      // Reset current printer if it was the deleted one
+      if (currentPrinter === printerId) {
+        currentPrinter = null;
+        document.getElementById('printerName').textContent = 'Select a printer';
+        document.getElementById('printerType').textContent = '';
+        document.getElementById('printerStatus').textContent = '';
+        document.getElementById('navTabs').innerHTML = '';
+        document.getElementById('navPanes').innerHTML = '';
+      }
+      
+      // Show success message
+      showToast(`Printer deleted successfully`, 'success');
+    } else {
+      showToast(data.error || 'Failed to delete printer', 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showToast('Error deleting printer', 'error');
   });
 }
 
@@ -197,33 +279,6 @@ function selectPrinter(printerId) {
   socket.emit('printer_files', { id: printerId, url: '/local' });
 }
 
-/**
- * Display printer details in the main content area
- */
-function displayPrinterDetails(printerId) {
-  const printer = printers[printerId];
-  if (!printer) return;
-
-  // Set printer header info
-  document.getElementById('printerName').textContent = printer.name;
-  document.getElementById('printerType').textContent = `${printer.brand} ${printer.model}`;
-  document.getElementById('printerIcon').src = printer.icon || '/static/img/default_printer.png';
-
-  // Set printer status
-  const statusEl = document.getElementById('printerStatus');
-  if (printer.status === 'connected') {
-    statusEl.innerHTML = '<i class="bi bi-circle-fill text-success me-1"></i> Connected';
-
-    if (printer.machine_status) {
-      statusEl.innerHTML += ` - ${printer.machine_status}`;
-    }
-  } else {
-    statusEl.innerHTML = '<i class="bi bi-circle-fill text-danger me-1"></i> Disconnected';
-  }
-
-  // Create tabs
-  createTabs(printer);
-}
 
 /**
  * Create tabs for printer details
@@ -812,8 +867,9 @@ function displayFileList(printerId, files, path) {
 
   sortedFiles.forEach(file => {
     const isDirectory = file.type === 0;
+    // Handle different file property naming conventions
     const fileName = file.name || file.FileName || 'Unknown';
-    const fileSize = formatFileSize(file.FileSize || 0);
+    const fileSize = formatFileSize(file.FileSize || file.fileSize || 0);
     const fileDate = file.CreationTime
       ? new Date(file.CreationTime * 1000).toLocaleString()
       : 'Unknown date';
@@ -837,7 +893,7 @@ function displayFileList(printerId, files, path) {
 
       // Add event listener for browsing folder
       item.querySelector('.browse-folder').addEventListener('click', () => {
-        socket.emit('printer_files', { id: printerId, url: file.name });
+        socket.emit('printer_files', { id: printerId, url: fileName });
         filesList.innerHTML = `
           <div class="text-center p-3">
             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
@@ -857,10 +913,10 @@ function displayFileList(printerId, files, path) {
             </div>
           </div>
           <div class="btn-group">
-            <button class="btn btn-sm btn-primary print-file" data-file="${fileName}">
+            <button class="btn btn-sm btn-primary btn-print-file">
               <i class="bi bi-printer me-1"></i> Print
             </button>
-            <button class="btn btn-sm btn-danger delete-file" data-file="${fileName}">
+            <button class="btn btn-sm btn-danger btn-delete-file">
               <i class="bi bi-trash me-1"></i> Delete
             </button>
           </div>
@@ -868,11 +924,11 @@ function displayFileList(printerId, files, path) {
       `;
 
       // Add event listeners for file actions
-      item.querySelector('.print-file').addEventListener('click', () => {
+      item.querySelector('.btn-print-file').addEventListener('click', () => {
         showConfirmModal('print', fileName);
       });
 
-      item.querySelector('.delete-file').addEventListener('click', () => {
+      item.querySelector('.btn-delete-file').addEventListener('click', () => {
         showConfirmModal('delete', fileName);
       });
     }
@@ -912,6 +968,24 @@ function showConfirmModal(action, value) {
   const modalAction = document.getElementById('modalConfirmAction');
   const modalValue = document.getElementById('modalConfirmValue');
   const confirmBtn = document.getElementById('btnConfirm');
+  
+  // Check if elements exist
+  if (!modalTitle || !modalAction || !modalValue || !confirmBtn) {
+    console.error('Modal elements not found');
+    return;
+  }
+  
+  // Get modal element and initialize if not already done
+  const modalEl = document.getElementById('modalConfirm');
+  if (!modalEl) {
+    console.error('Modal element not found');
+    return;
+  }
+  
+  // Initialize modal if not already initialized
+  if (!confirmModal) {
+    confirmModal = new bootstrap.Modal(modalEl);
+  }
 
   // Set title based on action
   switch (action) {
@@ -944,8 +1018,22 @@ function showConfirmModal(action, value) {
 function handleConfirmAction() {
   const action = document.getElementById('btnConfirm').dataset.action;
   const value = document.getElementById('btnConfirm').dataset.value;
+  const printerId = document.getElementById('btnConfirm').dataset.printerId;
 
-  if (!action || !currentPrinter) return;
+  if (!action) return;
+
+  // Handle printer deletion
+  if (action === 'delete-printer' && printerId) {
+    deletePrinter(printerId);
+    return;
+  }
+  
+  // Handle file actions
+  if (!currentPrinter) {
+    showToast('No printer selected', 'error');
+    if (confirmModal) confirmModal.hide();
+    return;
+  }
 
   switch (action) {
     case 'print':
@@ -959,7 +1047,6 @@ function handleConfirmAction() {
       break;
   }
 }
-
 /**
  * Handle upload button click
  */
@@ -1010,59 +1097,6 @@ function handleUploadClick() {
     .catch(error => {
       showToast('Error uploading file', 'error');
       console.error('Upload error:', error);
-    });
-}
-
-/**
- * Handle adding a printer manually
- */
-function handleAddPrinter(e) {
-  e.preventDefault();
-
-  const name = document.getElementById('printerName').value;
-  const ip = document.getElementById('printerIP').value;
-  const model = document.getElementById('printerModel').value;
-  const brand = document.getElementById('printerBrand').value;
-
-  // Validate form
-  if (!name || !ip) {
-    showToast('Please provide both name and IP address', 'warning');
-    return;
-  }
-
-  // Send request to add printer
-  fetch('/api/printer/add', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ name, ip, model, brand })
-  })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        showToast(`Printer ${name} added successfully`, 'success');
-        addPrinterModal.hide();
-
-        // Reset form
-        document.getElementById('formAddPrinter').reset();
-
-        // Refresh printer list
-        socket.emit('printers');
-
-        // Select the new printer if available
-        if (data.printer_id) {
-          setTimeout(() => {
-            selectPrinter(data.printer_id);
-          }, 500);
-        }
-      } else {
-        showToast(data.error || 'Failed to add printer', 'error');
-      }
-    })
-    .catch(error => {
-      showToast('Error adding printer', 'error');
-      console.error('Error:', error);
     });
 }
 
@@ -1357,9 +1391,8 @@ let scanModal = null;
 let scanInProgress = false;
 let discoveredPrinters = 0;
 
-// Add this to your existing document.addEventListener('DOMContentLoaded', ...) function
 document.addEventListener('DOMContentLoaded', () => {
-  // Existing initialization code...
+  initDefaultImages();
 
   // Initialize scan modal
   scanModal = new bootstrap.Modal(document.getElementById('modalScanLAN'));
@@ -1372,7 +1405,7 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('printer_discovered', handlePrinterDiscovered);
 });
 
-/**
+/**s
  * Start a LAN scan for printers
  */
 function startLANScan() {
@@ -1387,36 +1420,33 @@ function startLANScan() {
   document.getElementById('scanStatus').className = 'alert alert-info';
   document.getElementById('foundPrinters').classList.add('d-none');
   document.getElementById('printerScanList').innerHTML = '';
+  
+  // Add search status
+  const scanDetails = document.createElement('div');
+  scanDetails.className = 'scan-details small text-muted mt-2';
+  scanDetails.innerHTML = `
+    <div id="scanDetails">
+      <div>Scanning network interfaces...</div>
+    </div>
+  `;
+  document.getElementById('scanStatus').appendChild(scanDetails);
 
   // Show modal
   scanModal.show();
 
-  // Animate progress to indicate activity (since we don't get real progress)
-  let progress = 0;
-  const progressInterval = setInterval(() => {
-    progress += 5;
-    if (progress > 90) progress = 90; // Cap at 90% until complete
-    document.getElementById('scanProgress').style.width = `${progress}%`;
-  }, 500);
-
-  // Start scan
-  socket.emit('scan_lan', { timeout: 5 });  // 5 second timeout
-
-  // Update status text
-  document.getElementById('scanStatus').textContent = 'Scanning network for printers...';
+  // Start scan with 8 second timeout for more thorough scanning
+  socket.emit('scan_lan', { timeout: 8 });
 
   // Set timeout to ensure scan doesn't hang
   setTimeout(() => {
     if (scanInProgress) {
-      clearInterval(progressInterval);
       completeScan(discoveredPrinters > 0);
     }
-  }, 15000);  // 15 second max timeout
+  }, 30000);  // 30 second max timeout for thorough scan
 
   // Function to complete scan
   function completeScan(success) {
     scanInProgress = false;
-    clearInterval(progressInterval);
 
     // Update UI
     document.getElementById('scanProgress').style.width = '100%';
@@ -1429,12 +1459,27 @@ function startLANScan() {
     } else {
       document.getElementById('scanStatus').textContent = 'No printers found on your network.';
       document.getElementById('scanStatus').className = 'alert alert-warning';
+      
+      // Add troubleshooting tips
+      const tips = document.createElement('div');
+      tips.className = 'mt-3 small';
+      tips.innerHTML = `
+        <p><strong>Troubleshooting tips:</strong></p>
+        <ul>
+          <li>Make sure your printer is powered on and connected to the network</li>
+          <li>Ensure your computer and printer are on the same network</li>
+          <li>Try adding your printer manually using its IP address</li>
+          <li>Check if your firewall is blocking UDP port 3000</li>
+          <li>Temporarily disable VPN software if you're using any</li>
+        </ul>
+      `;
+      document.getElementById('scanStatus').appendChild(tips);
     }
   }
 }
 
 /**
- * Handle scan progress update from server
+ * Handle scan progress update from server with more detailed information
  */
 function handleScanProgress(data) {
   if (!scanInProgress) return;
@@ -1446,7 +1491,25 @@ function handleScanProgress(data) {
 
   // Update status text if provided
   if (data.status) {
-    document.getElementById('scanStatus').textContent = data.status;
+    const mainStatus = document.getElementById('scanStatus');
+    if (mainStatus.childNodes.length === 0 || mainStatus.childNodes[0].nodeType === Node.TEXT_NODE) {
+      mainStatus.textContent = data.status;
+    } else {
+      mainStatus.childNodes[0].textContent = data.status;
+    }
+  }
+  
+  // Add scan details if available
+  if (data.details) {
+    const detailsEl = document.getElementById('scanDetails');
+    if (detailsEl) {
+      const detail = document.createElement('div');
+      detail.textContent = data.details;
+      detailsEl.appendChild(detail);
+      
+      // Scroll to bottom
+      detailsEl.scrollTop = detailsEl.scrollHeight;
+    }
   }
 
   // Complete scan if done
@@ -1464,6 +1527,16 @@ function handleScanProgress(data) {
     } else {
       document.getElementById('scanStatus').textContent = 'No printers found on your network.';
       document.getElementById('scanStatus').className = 'alert alert-warning';
+      
+      // Add a button to manually add a printer
+      const addManuallyBtn = document.createElement('button');
+      addManuallyBtn.className = 'btn btn-primary mt-3';
+      addManuallyBtn.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Add Printer Manually';
+      addManuallyBtn.addEventListener('click', () => {
+        scanModal.hide();
+        addPrinterModal.show();
+      });
+      document.getElementById('scanStatus').appendChild(addManuallyBtn);
     }
   }
 }
@@ -1591,74 +1664,631 @@ function initSocketIO() {
   socket.on('upload_progress', handleUploadProgress);
 }
 
-// Add a more robust version of the handleAddPrinter function to fix issues
 function handleAddPrinter(e) {
   e.preventDefault();
 
-  const name = document.getElementById('printerName').value.trim();
-  const ip = document.getElementById('printerIP').value.trim();
-  const model = document.getElementById('printerModel').value;
-  const brand = document.getElementById('printerBrand').value;
+  // Get form inputs
+  const form = document.getElementById('formAddPrinter');
+  const name = form.querySelector('[name="name"]').value.trim();
+  const ip = form.querySelector('[name="ip"]').value.trim();
+  const model = form.querySelector('[name="model"]').value;
+  const brand = form.querySelector('[name="brand"]').value;
 
-  // Validate form
-  if (!name || !ip) {
-    showToast('Please provide both name and IP address', 'warning');
-    return;
+  // Enhanced validation
+  const errors = [];
+  if (!name) errors.push("Printer name is required");
+  if (!ip) errors.push("IP address is required");
+
+  // IP format validation
+  const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+  if (ip && !ipRegex.test(ip)) {
+    errors.push("Invalid IP address format (e.g., 192.168.1.100)");
+  } else if (ip) {
+    // Validate each octet is 0-255
+    const octets = ip.split('.');
+    for (const octet of octets) {
+      const num = parseInt(octet, 10);
+      if (num < 0 || num > 255) {
+        errors.push("IP address octets must be between 0 and 255");
+        break;
+      }
+    }
   }
 
-  // Validate IP format
-  const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
-  if (!ipRegex.test(ip)) {
-    showToast('Please enter a valid IP address (e.g. 192.168.1.100)', 'warning');
+  // Display validation errors
+  if (errors.length > 0) {
+    const errorMsg = errors.join(". ");
+    showToast(errorMsg, 'error');
     return;
   }
 
   // Show loading state
-  const submitBtn = document.querySelector('#formAddPrinter button[type="submit"]');
+  const submitBtn = form.querySelector('button[type="submit"]');
   const originalBtnText = submitBtn.innerHTML;
   submitBtn.disabled = true;
-  submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Adding...';
+  submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Adding...';
 
-  // Send request to add printer
-  fetch('/api/printer/add', {
+  // First run a connectivity test
+  fetch('/api/printer/diagnostics', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ name, ip, model, brand })
+    body: JSON.stringify({ ip })
   })
+  .then(response => response.json())
+  .then(diagnostic => {
+    if (diagnostic.success && (diagnostic.results.overall.status === 'success' || diagnostic.results.ping.status === 'success')) {
+      // IP is reachable, proceed with adding printer
+      return fetch('/api/printer/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, ip, model, brand })
+      });
+    } else {
+      // IP is not reachable, but allow user to continue with warning
+      const confirmContinue = confirm(`Warning: Printer at ${ip} seems unreachable. Add anyway?`);
+      if (confirmContinue) {
+        return fetch('/api/printer/add', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name, ip, model, brand })
+        });
+      } else {
+        throw new Error('Canceled by user');
+      }
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    // Reset button state
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = originalBtnText;
+
+    if (data.success) {
+      showToast(`Printer "${name}" added successfully`, 'success');
+      addPrinterModal.hide();
+
+      // Reset form
+      form.reset();
+
+      // Refresh printer list
+      socket.emit('printers');
+
+      // Select the new printer if available
+      if (data.printer_id) {
+        setTimeout(() => {
+          selectPrinter(data.printer_id);
+        }, 500);
+      }
+    } else {
+      showToast(data.error || 'Failed to add printer', 'error');
+    }
+  })
+  .catch(error => {
+    // Reset button state
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = originalBtnText;
+
+    if (error.message === 'Canceled by user') {
+      showToast('Printer addition canceled', 'info');
+    } else {
+      showToast('Error adding printer: Network error', 'error');
+      console.error('Error:', error);
+    }
+  });
+}
+
+function createCameraTab(printer) {
+  // Only create camera tab if printer supports it
+  if (!printer.supports_camera) return;
+  
+  const cameraPaneEl = document.getElementById('camera-pane');
+  if (!cameraPaneEl) return;
+  
+  cameraPaneEl.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="mb-0">Camera Stream</h5>
+      <div>
+        <button class="btn btn-primary" id="btnStartStream">
+          <i class="bi bi-play-fill me-1"></i> Start Stream
+        </button>
+        <button class="btn btn-secondary d-none" id="btnStopStream">
+          <i class="bi bi-stop-fill me-1"></i> Stop Stream
+        </button>
+        <button class="btn btn-info ms-2" id="btnCameraSettings">
+          <i class="bi bi-gear-fill me-1"></i> Settings
+        </button>
+      </div>
+    </div>
+    <div class="camera-view">
+      <div class="text-center py-5" id="cameraPlaceholder">
+        <i class="bi bi-camera-video display-1 text-muted"></i>
+        <p class="mt-2 text-muted">Click Start Stream to view camera feed</p>
+      </div>
+      <img src="" id="cameraStream" class="img-fluid d-none rounded" alt="Camera stream">
+    </div>
+    <div class="camera-controls mt-3 d-none">
+      <div class="card">
+        <div class="card-header">Camera Controls</div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Refresh Rate</label>
+                <select class="form-select" id="cameraRefreshRate">
+                  <option value="500">Very Fast (0.5s)</option>
+                  <option value="1000" selected>Fast (1s)</option>
+                  <option value="2000">Normal (2s)</option>
+                  <option value="5000">Slow (5s)</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label class="form-label">Camera Status</label>
+                <div class="d-flex align-items-center">
+                  <span id="cameraStatus" class="badge bg-secondary me-2">Unknown</span>
+                  <button class="btn btn-sm btn-outline-primary" id="btnRefreshCameraStatus">
+                    <i class="bi bi-arrow-clockwise"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row mt-2">
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="cameraEnabledSwitch">
+                <label class="form-check-label" for="cameraEnabledSwitch">
+                  Enable Camera on Printer
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Add event listeners for camera controls
+  document.getElementById('btnStartStream').addEventListener('click', () => {
+    startCameraStream(printer.id);
+  });
+  
+  document.getElementById('btnStopStream').addEventListener('click', () => {
+    stopCameraStream();
+  });
+  
+  document.getElementById('btnCameraSettings').addEventListener('click', () => {
+    toggleCameraControls();
+  });
+  
+  document.getElementById('cameraRefreshRate').addEventListener('change', (e) => {
+    updateCameraRefreshRate(parseInt(e.target.value, 10));
+  });
+  
+  document.getElementById('cameraEnabledSwitch').addEventListener('change', (e) => {
+    setCameraEnabled(printer.id, e.target.checked);
+  });
+  
+  document.getElementById('btnRefreshCameraStatus').addEventListener('click', () => {
+    checkCameraStatus(printer.id);
+  });
+  
+  // Initialize camera status
+  checkCameraStatus(printer.id);
+}
+
+// Toggle camera controls visibility
+function toggleCameraControls() {
+  const controls = document.querySelector('.camera-controls');
+  if (controls) {
+    controls.classList.toggle('d-none');
+  }
+}
+
+// Update camera refresh rate
+function updateCameraRefreshRate(rate) {
+  if (cameraInterval) {
+    clearInterval(cameraInterval);
+    cameraInterval = null;
+  }
+  
+  if (cameraStreaming) {
+    // Restart stream with new refresh rate
+    cameraInterval = setInterval(() => {
+      const img = document.getElementById('cameraStream');
+      if (img) {
+        const newTimestamp = new Date().getTime();
+        img.src = `/camera/${currentPrinter}/stream?t=${newTimestamp}`;
+      }
+    }, rate);
+  }
+}
+
+// Check camera status via API
+function checkCameraStatus(printerId) {
+  if (!printerId) return;
+  
+  const statusEl = document.getElementById('cameraStatus');
+  const switchEl = document.getElementById('cameraEnabledSwitch');
+  
+  if (!statusEl || !switchEl) return;
+  
+  // Set loading state
+  statusEl.className = 'badge bg-info me-2';
+  statusEl.textContent = 'Checking...';
+  
+  // Request camera status via API
+  fetch(`/api/printer/${printerId}/camera/status`)
     .then(response => response.json())
     .then(data => {
-      // Reset button state
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalBtnText;
-
       if (data.success) {
-        showToast(`Printer ${name} added successfully`, 'success');
-        addPrinterModal.hide();
-
-        // Reset form
-        document.getElementById('formAddPrinter').reset();
-
-        // Refresh printer list
-        socket.emit('printers');
-
-        // Select the new printer if available
-        if (data.printer_id) {
-          setTimeout(() => {
-            selectPrinter(data.printer_id);
-          }, 500);
-        }
+        // Update UI
+        const enabled = data.enabled;
+        statusEl.className = enabled ? 'badge bg-success me-2' : 'badge bg-danger me-2';
+        statusEl.textContent = enabled ? 'Enabled' : 'Disabled';
+        switchEl.checked = enabled;
       } else {
-        showToast(data.error || 'Failed to add printer', 'error');
+        // Show error
+        statusEl.className = 'badge bg-warning me-2';
+        statusEl.textContent = 'Error';
       }
     })
     .catch(error => {
-      // Reset button state
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = originalBtnText;
-
-      showToast('Error adding printer: Network error', 'error');
-      console.error('Error:', error);
+      console.error('Error checking camera status:', error);
+      statusEl.className = 'badge bg-danger me-2';
+      statusEl.textContent = 'Error';
     });
+}
+
+// Enable/disable camera on printer
+function setCameraEnabled(printerId, enabled) {
+  if (!printerId) return;
+  
+  // Send request to API endpoint
+  fetch(`/api/printer/${printerId}/camera`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      enable: enabled
+    })
+  })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Show success message
+        showToast(
+          `Camera ${enabled ? 'enabled' : 'disabled'} successfully`,
+          'success'
+        );
+        
+        // Update UI
+        checkCameraStatus(printerId);
+      } else {
+        // Show error
+        showToast(
+          `Failed to ${enabled ? 'enable' : 'disable'} camera: ${data.error || 'Unknown error'}`,
+          'error'
+        );
+      }
+    })
+    .catch(error => {
+      console.error('Error setting camera status:', error);
+      showToast(
+        `Error setting camera status: ${error.message || 'Network error'}`,
+        'error'
+      );
+    });
+}
+function startCameraStream(printerId) {
+  if (!printerId || !printers[printerId] || !printers[printerId].supports_camera) return;
+
+  // Show loading indicator
+  const placeholder = document.getElementById('cameraPlaceholder');
+  placeholder.innerHTML = `
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-3 text-muted">Connecting to camera...</p>
+    </div>
+  `;
+
+  // Get stream image element
+  const img = document.getElementById('cameraStream');
+
+  // Show start/stop buttons
+  document.getElementById('btnStartStream').classList.add('d-none');
+  document.getElementById('btnStopStream').classList.remove('d-none');
+
+  // Enable camera on printer via API
+  fetch(`/api/printer/${printerId}/camera`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      enable: true
+    })
+  })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Load first image
+        const timestamp = new Date().getTime();
+        img.src = `/camera/${printerId}/stream?t=${timestamp}`;
+        
+        // When image loads, hide placeholder and show image
+        img.onload = () => {
+          placeholder.classList.add('d-none');
+          img.classList.remove('d-none');
+          
+          // Set streaming flag
+          cameraStreaming = true;
+          
+          // Get refresh rate from select
+          const refreshRate = parseInt(document.getElementById('cameraRefreshRate').value, 10) || 1000;
+          
+          // Start refresh interval
+          if (cameraInterval) {
+            clearInterval(cameraInterval);
+          }
+          
+          cameraInterval = setInterval(() => {
+            const newTimestamp = new Date().getTime();
+            img.src = `/camera/${printerId}/stream?t=${newTimestamp}`;
+          }, refreshRate);
+          
+          // Show camera controls
+          document.querySelector('.camera-controls')?.classList.remove('d-none');
+          
+          // Update status
+          checkCameraStatus(printerId);
+        };
+        
+        // Handle errors
+        img.onerror = () => {
+          handleCameraError(placeholder);
+        };
+      } else {
+        // Show error
+        handleCameraError(placeholder, data.error || 'Failed to enable camera');
+      }
+    })
+    .catch(error => {
+      console.error('Error enabling camera:', error);
+      handleCameraError(placeholder, error.message || 'Network error');
+    });
+}
+
+function handleCameraError(placeholder, errorMsg = null) {
+  placeholder.innerHTML = `
+    <div class="text-center py-5">
+      <i class="bi bi-camera-video-off text-danger display-4"></i>
+      <p class="mt-3 text-danger">Failed to connect to camera</p>
+      ${errorMsg ? `<p class="small text-muted">${errorMsg}</p>` : ''}
+      <button class="btn btn-outline-primary mt-2" id="btnRetryCamera">
+        <i class="bi bi-arrow-clockwise me-1"></i> Retry
+      </button>
+    </div>
+  `;
+
+  document.getElementById('cameraStream').classList.add('d-none');
+
+  // Show start button, hide stop button
+  document.getElementById('btnStartStream').classList.remove('d-none');
+  document.getElementById('btnStopStream').classList.add('d-none');
+
+  // Reset streaming state
+  cameraStreaming = false;
+  if (cameraInterval) {
+    clearInterval(cameraInterval);
+    cameraInterval = null;
+  }
+
+  // Add retry button handler
+  document.getElementById('btnRetryCamera')?.addEventListener('click', () => {
+    startCameraStream(currentPrinter);
+  });
+}
+
+function stopCameraStream() {
+  // Stop refresh interval
+  if (cameraInterval) {
+    clearInterval(cameraInterval);
+    cameraInterval = null;
+  }
+
+  // Reset UI
+  const placeholder = document.getElementById('cameraPlaceholder');
+  const img = document.getElementById('cameraStream');
+
+  placeholder.classList.remove('d-none');
+  placeholder.innerHTML = `
+    <div class="text-center py-5">
+      <i class="bi bi-camera-video text-muted display-4"></i>
+      <p class="mt-3 text-muted">Click Start Stream to view camera feed</p>
+    </div>
+  `;
+
+  img.classList.add('d-none');
+
+  // Show start button, hide stop button
+  document.getElementById('btnStartStream').classList.remove('d-none');
+  document.getElementById('btnStopStream').classList.add('d-none');
+
+  // Set streaming flag
+  cameraStreaming = false;
+
+  // Disable camera on printer
+  if (currentPrinter) {
+    fetch(`/api/printer/${currentPrinter}/camera`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        enable: false
+      })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Update status
+          checkCameraStatus(currentPrinter);
+        }
+      })
+      .catch(error => {
+        console.error('Error disabling camera:', error);
+      });
+  }
+}
+
+function handleCameraError(placeholder, errorMsg = null) {
+  placeholder.innerHTML = `
+      <div class="text-center py-5">
+          <i class="bi bi-camera-video-off text-danger display-4"></i>
+          <p class="mt-3 text-danger">Failed to connect to camera</p>
+          ${errorMsg ? `<p class="small text-muted">${errorMsg}</p>` : ''}
+          <button class="btn btn-outline-primary mt-2" id="btnRetryCamera">
+              <i class="bi bi-arrow-clockwise me-1"></i> Retry
+          </button>
+      </div>
+  `;
+
+  document.getElementById('cameraStream').classList.add('d-none');
+
+  // Show start button, hide stop button
+  document.getElementById('btnStartStream').classList.remove('d-none');
+  document.getElementById('btnStopStream').classList.add('d-none');
+
+  // Reset streaming state
+  cameraStreaming = false;
+  if (cameraInterval) {
+      clearInterval(cameraInterval);
+      cameraInterval = null;
+  }
+
+  // Add retry button handler
+  document.getElementById('btnRetryCamera')?.addEventListener('click', () => {
+      startCameraStream(currentPrinter);
+  });
+}
+
+function stopCameraStream() {
+  // Stop refresh interval
+  if (cameraInterval) {
+      clearInterval(cameraInterval);
+      cameraInterval = null;
+  }
+
+  // Reset UI
+  const placeholder = document.getElementById('cameraPlaceholder');
+  const img = document.getElementById('cameraStream');
+
+  placeholder.classList.remove('d-none');
+  placeholder.innerHTML = `
+      <div class="text-center py-5">
+          <i class="bi bi-camera-video text-muted display-4"></i>
+          <p class="mt-3 text-muted">Click Start Stream to view camera feed</p>
+      </div>
+  `;
+
+  img.classList.add('d-none');
+
+  // Show start button, hide stop button
+  document.getElementById('btnStartStream').classList.remove('d-none');
+  document.getElementById('btnStopStream').classList.add('d-none');
+
+  // Set streaming flag
+  cameraStreaming = false;
+
+  // Disable camera on printer
+  if (currentPrinter) {
+      fetch(`/api/printer/${currentPrinter}/camera`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+              enable: false
+          })
+      })
+          .then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  // Update status
+                  checkCameraStatus(currentPrinter);
+              }
+          })
+          .catch(error => {
+              console.error('Error disabling camera:', error);
+          });
+  }
+}
+
+// Add this to the initialization code in chitui.js
+function initDefaultImages() {
+  // Create a default SVG printer icon as base64
+  window.DEFAULT_PRINTER_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiMzMzMiIHJ4PSIxMCIvPjxwYXRoIGQ9Ik0zMCA3MGg0MHYxNUgzMHoiIGZpbGw9IiM2NjYiLz48cGF0aCBkPSJNMjUgMzBoNTB2MzBIMjV6IiBmaWxsPSIjNjY2Ii8+PHBhdGggZD0iTTM1IDIwaDMwdjEwSDM1eiIgZmlsbD0iIzY2NiIvPjxjaXJjbGUgY3g9IjY1IiBjeT0iNDUiIHI9IjUiIGZpbGw9IiM5OTkiLz48L3N2Zz4=';
+  
+  // Add global error handler for images
+  document.addEventListener('error', function(e) {
+    if (e.target.tagName === 'IMG') {
+      // For printer icons
+      if (e.target.classList.contains('printerIcon')) {
+        e.target.src = window.DEFAULT_PRINTER_ICON;
+      }
+      // For the main printer image
+      else if (e.target.id === 'printerIcon') {
+        e.target.src = window.DEFAULT_PRINTER_ICON;
+      }
+    }
+  }, true);
+}
+
+function displayPrinterDetails(printerId) {
+  const printer = printers[printerId];
+  if (!printer) return;
+
+  // Set printer header info
+  document.getElementById('printerName').textContent = printer.name;
+  document.getElementById('printerType').textContent = `${printer.brand} ${printer.model}`;
+  document.getElementById('printerIcon').src = printer.icon || window.DEFAULT_PRINTER_ICON;
+
+  // Set printer status
+  const statusEl = document.getElementById('printerStatus');
+  if (printer.status === 'connected') {
+    statusEl.innerHTML = '<i class="bi bi-circle-fill text-success me-1"></i> Connected';
+
+    if (printer.machine_status) {
+      statusEl.innerHTML += ` - ${printer.machine_status}`;
+    }
+  } else {
+    statusEl.innerHTML = '<i class="bi bi-circle-fill text-danger me-1"></i> Disconnected';
+  }
+
+  // Create tabs
+  createTabs(printer);
+  
+  // Initialize camera tab if printer supports camera
+  if (printer.supports_camera) {
+    createCameraTab(printer);
+  }
+}
+
+function logDebug(...args) {
+  if (DEBUG) {
+    console.log('[ChitUI Debug]', ...args);
+  }
+}
+
+function logError(...args) {
+  console.error('[ChitUI Error]', ...args);
 }

@@ -16,13 +16,11 @@ from rich.text import Text
 from rich import print as rprint
 import time
 
-# Import our database management modules
-from app.db_config import setup_db_engine, get_db_session, close_db_session
-from app.db_migration import run_migrations, get_current_version
-from app.db_backup import DatabaseBackup
-from app.db_cli import app as db_app
-
-from app.utils import load_config_file as load_config
+# Fix import paths - use the correct module paths
+from app.database.db_config import setup_db_engine, get_db_session, close_db_session
+from app.database.db_migration import run_migrations, get_current_version
+from app.database.db_backup import DatabaseBackup
+from app.database.db_cli import app as db_app
 
 # Create Typer app
 app = typer.Typer(

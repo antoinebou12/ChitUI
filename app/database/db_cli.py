@@ -7,12 +7,12 @@ from pathlib import Path
 from datetime import datetime
 import time
 
-from app.db_config import setup_db_engine
-from app.db_migration import (
+from app.database.db_config import setup_db_engine
+from app.database.db_migration import (
     create_migration, run_migrations, downgrade_migrations,
     list_migrations, get_current_version
 )
-from app.db_backup import DatabaseBackup
+from app.database.db_backup import DatabaseBackup
 from app.utils import load_config_file as load_config
 
 # Create console for rich output

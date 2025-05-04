@@ -211,10 +211,10 @@ def discovery_task():
 
 
 def lan_scan_task(timeout, socketio):
-    """Run LAN scan in a separate thread with progress updates."""
+    """Run LAN scan in a separate thread with detailed progress updates."""
     # Emit initial progress
     socketio.emit('scan_progress', {
-        'progress': 10,
+        'progress': 5,
         'status': 'Initializing network scan...',
         'complete': False
     })
@@ -224,10 +224,48 @@ def lan_scan_task(timeout, socketio):
         # Give UI time to show
         time.sleep(0.5)
         
+        # Scan network interfaces
+        socketio.emit('scan_progress', {
+            'progress': 10,
+            'status': 'Checking network interfaces...',
+            'details': 'Finding available network interfaces',
+            'complete': False
+        })
+        
+        # Get network interfaces
+        try:
+            import netifaces
+            interfaces = []
+            for iface in netifaces.interfaces():
+                addrs = netifaces.ifaddresses(iface)
+                if netifaces.AF_INET in addrs:
+                    for addr in addrs[netifaces.AF_INET]:
+                        if 'addr' in addr and 'broadcast' in addr:
+                            interfaces.append({
+                                'name': iface,
+                                'ip': addr['addr'],
+                                'broadcast': addr['broadcast']
+                            })
+            
+            # Update progress with interface info
+            for i, iface in enumerate(interfaces):
+                socketio.emit('scan_progress', {
+                    'progress': 15 + i * 5,
+                    'details': f"Found interface: {iface['name']} ({iface['ip']})",
+                    'complete': False
+                })
+        except ImportError:
+            socketio.emit('scan_progress', {
+                'progress': 20,
+                'details': 'Using default network configuration',
+                'complete': False
+            })
+        
         # Update progress
         socketio.emit('scan_progress', {
             'progress': 30,
-            'status': 'Sending UDP broadcast...',
+            'status': 'Broadcasting discovery packets...',
+            'details': 'Sending UDP broadcast on all interfaces',
             'complete': False
         })
         
@@ -238,6 +276,7 @@ def lan_scan_task(timeout, socketio):
         socketio.emit('scan_progress', {
             'progress': 70,
             'status': f'Processing {len(discovered)} found devices...',
+            'details': f'Found {len(discovered)} printers on the network',
             'complete': False
         })
         
@@ -263,12 +302,20 @@ def lan_scan_task(timeout, socketio):
                 logger.debug(f"Updated printer: {printer['name']} ({printer['ip']})")
         
         # Connect to printers
+        socketio.emit('scan_progress', {
+            'progress': 85,
+            'status': 'Connecting to discovered printers...',
+            'details': 'Establishing connections to printers',
+            'complete': False
+        })
+        
         connect_printers()
         
         # Emit final progress
         socketio.emit('scan_progress', {
             'progress': 100,
             'status': f'Scan complete! Found {len(discovered)} printer(s).',
+            'details': 'Scan completed successfully',
             'complete': True,
             'success': len(discovered) > 0
         })
@@ -281,6 +328,7 @@ def lan_scan_task(timeout, socketio):
         socketio.emit('scan_progress', {
             'progress': 100,
             'status': f'Error during scan: {str(e)}',
+            'details': f'Exception: {str(e)}',
             'complete': True,
             'success': False
         })
